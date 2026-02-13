@@ -44,6 +44,7 @@ let package = Package(
             name: "Benchmarks",
             dependencies: [
                 "ListKit",
+                "Lists",
                 .product(name: "IGListDiffKit", package: "IGListKit"),
                 .product(name: "ReactiveCollectionsKit", package: "ReactiveCollectionsKit"),
             ],

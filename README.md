@@ -107,32 +107,36 @@ await dataSource.apply(snapshot)
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────┐
-│  Lists                                              │
-│  ┌──────────────┐  ┌───────────┐  ┌──────────────┐  │
-│  │ SimpleList   │  │ GroupedList│ │ OutlineList  │  │
-│  └──────┬───────┘  └─────┬─────┘  └──────┬───────┘  │
-│         └────────┬───────┘               │          │
-│           ┌──────▼──────┐                │          │
-│           │ListDataSource│───────────────┘          │
-│           └──────┬──────┘                           │
-│   ┌──────────────┼──────────────────┐               │
-│   │SnapshotBuilder│  CellViewModel  │               │
-│   └──────────────┴──────────────────┘               │
-├─────────────────────────────────────────────────────┤
-│  ListKit                                            │
-│  ┌─────────────────────────────────────┐            │
-│  │ CollectionViewDiffableDataSource    │            │
-│  └──────────────┬──────────────────────┘            │
-│  ┌──────────────▼──────────────────────┐            │
-│  │ DiffableDataSourceSnapshot          │            │
-│  │ DiffableDataSourceSectionSnapshot   │            │
-│  └──────────────┬──────────────────────┘            │
-│  ┌──────────────▼──────────────────────┐            │
-│  │ HeckelDiff (O(n))                   │            │
-│  │ SectionedDiff                       │            │
-│  └─────────────────────────────────────┘            │
-└─────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│  Lists                                                       │
+│  ┌──────────────┐  ┌───────────┐  ┌──────────────┐           │
+│  │ SimpleList   │  │ GroupedList│  │ OutlineList  │           │
+│  └──────┬───────┘  └─────┬─────┘  └──────┬───────┘           │
+│         └────────┬───────┘               │                   │
+│           ┌──────▼──────┐                │                   │
+│           │ListDataSource│───────────────┘                   │
+│           └──────┬──────┘                                    │
+│       ┌──────────▼───────────┐                               │
+│       │MixedListDataSource   │  (heterogeneous cell types)   │
+│       │  AnyItem + Registrar │                               │
+│       └──────────┬───────────┘                               │
+│   ┌──────────────┼──────────────────┐                        │
+│   │SnapshotBuilder│  CellViewModel  │                        │
+│   └──────────────┴──────────────────┘                        │
+├──────────────────────────────────────────────────────────────┤
+│  ListKit                                                     │
+│  ┌─────────────────────────────────────┐                     │
+│  │ CollectionViewDiffableDataSource    │                     │
+│  └──────────────┬──────────────────────┘                     │
+│  ┌──────────────▼──────────────────────┐                     │
+│  │ DiffableDataSourceSnapshot          │                     │
+│  │ DiffableDataSourceSectionSnapshot   │                     │
+│  └──────────────┬──────────────────────┘                     │
+│  ┌──────────────▼──────────────────────┐                     │
+│  │ HeckelDiff (O(n))                   │                     │
+│  │ SectionedDiff                       │                     │
+│  └─────────────────────────────────────┘                     │
+└──────────────────────────────────────────────────────────────┘
 ```
 
 ## Features
@@ -204,13 +208,47 @@ sectionSnapshot.expand([parent])
 await dataSource.apply(sectionSnapshot, to: .files)
 ```
 
+### Mixed Cell Types
+
+`MixedListDataSource` supports heterogeneous `CellViewModel` types in a single data source via type-erased `AnyItem`. Each section (or even each row) can use a different cell type:
+
+```swift
+struct BannerItem: CellViewModel { typealias Cell = BannerCell; ... }
+struct ProductItem: CellViewModel { typealias Cell = ProductCell; ... }
+
+let dataSource = MixedListDataSource<SectionID>(collectionView: collectionView)
+
+await dataSource.apply {
+    MixedSection(.banners) {
+        BannerItem(title: "Summer Sale!")
+    }
+    MixedSection(.products) {
+        ProductItem(name: "Laptop", price: "$999")
+        ProductItem(name: "Phone", price: "$699")
+    }
+}
+
+// Type-safe extraction for tap handling
+if let product = anyItem.as(ProductItem.self) { showDetail(product) }
+```
+
+`MixedListDataSource` uses type-erased `AnyItem` wrappers, which adds overhead compared to the concrete `ListDataSource` path. `AnyItem` uses precomputed hashing and `ObjectIdentifier` fast-reject equality to minimize the cost — cross-type comparisons are a single pointer compare, not a witness table dispatch.
+
+| Operation | Concrete | AnyItem | Overhead |
+|:---|---:|---:|---:|
+| Wrap 10k items | — | 0.5 ms | — |
+| Build 10k snapshot | 0.002 ms | 0.08 ms | ~40x |
+| DSL build 100 sections x 100 | 0.4 ms | 1.4 ms | ~3x |
+| Diff 10k (50% overlap) | 12.0 ms | 17.1 ms | ~1.4x |
+| Diff 10k (cross-type replace) | — | 28.6 ms | — |
+
+Snapshot construction overhead is measurable but sub-millisecond at typical scales. The critical path — diffing — adds only ~40% overhead, and both absolute times remain well within a single frame budget (16ms @ 60fps for typical list sizes).
+
 ### Swift 6 Strict Concurrency
 
 All types are `Sendable`. The data source is `@MainActor`. Snapshots are value types that can be built on any thread and applied on main.
 
 ## Current Limitations
-
-**Mixed cell types in Lists.** `ListDataSource` is generic over a single `Item: CellViewModel`, so every item shares one `Cell` associated type. This means you can't mix heterogeneous cell types (e.g. a horizontal carousel section alongside vertical list rows) through the Lists layer. Workaround: use `CollectionViewDiffableDataSource` (ListKit) directly — its `CellProvider` closure can return any cell type per index path, just like Apple's API.
 
 **Delegate access in pre-built configurations.** `SimpleList`, `GroupedList`, and `OutlineList` own the `UICollectionViewDelegate` and only expose `onSelect`. Swipe actions, context menus, and drag-and-drop require using `ListDataSource` or `CollectionViewDiffableDataSource` directly with your own delegate.
 
@@ -234,16 +272,16 @@ ListKit snapshots are pure Swift value types with flat array storage and a lazy 
 
 ### vs IGListKit (Instagram)
 
-Both libraries implement Paul Heckel's O(n) diff. IGListKit's is Objective-C++; ListKit's is pure Swift. Both sides perform equivalent work: diff two collections with 50% overlap. ListKit's numbers include the full pipeline (build two snapshots + `SectionedDiff.diff`).
+Both libraries implement Paul Heckel's O(n) diff. IGListKit's is Objective-C++; ListKit's is pure Swift. Both sides pre-build their data structures before the timed block so only the diff algorithm is measured — `ListDiff()` for IGListKit, `SectionedDiff.diff()` for ListKit. IGListKit diffs a single flat array; ListKit diffs sections first, then items per-section, and reconciles cross-section moves.
 
 | Operation | IGListKit | ListKit | Notes |
 |:---|---:|---:|:---|
-| Diff 10k (50% overlap) | 11.6 ms | 11.9 ms | Near-parity at common scale |
-| Diff 50k (50% overlap) | 64.0 ms | 70.9 ms | IGListKit's C++ is faster for raw diffing |
-| Diff no-change 10k | 10.6 ms | 0.1 ms | **91x** — per-section skip makes this free |
-| Diff shuffle 10k | 11.6 ms | 3.4 ms | **3.4x** ListKit wins all-moves case |
+| Diff 10k (50% overlap) | 12.6 ms | 11.8 ms | ListKit wins at common scale |
+| Diff 50k (50% overlap) | 55.7 ms | 67.7 ms | IGListKit's flat C++ pass is faster at scale |
+| Diff no-change 10k | 9.4 ms | 0.08 ms | **116x** — per-section skip makes this free |
+| Diff shuffle 10k | 10.3 ms | 3.3 ms | **3.1x** ListKit wins all-moves case |
 
-Per-section diffing skips unchanged sections entirely — the common case for incremental UI updates. For heavy churn (50% overlap), IGListKit's Obj-C++ wins on raw throughput, but ListKit provides sectioned structure, `Sendable` safety, and full `UICollectionViewDiffableDataSource` compatibility that IGListKit doesn't.
+Per-section diffing skips unchanged sections entirely — the common case for incremental UI updates. At 50k with 50% overlap, IGListKit's single-pass Obj-C++ is faster, but ListKit provides sectioned structure, `Sendable` safety, and full `UICollectionViewDiffableDataSource` compatibility that IGListKit doesn't.
 
 ### vs ReactiveCollectionsKit
 
@@ -292,15 +330,16 @@ Sources/
     Snapshot/       # DiffableDataSourceSnapshot, SectionSnapshot
   Lists/            # High-level declarative API
     Protocols/      # CellViewModel, SectionModel
-    DataSource/     # ListDataSource
-    Builder/        # SnapshotBuilder, ItemsBuilder, DSL extensions
+    DataSource/     # ListDataSource, MixedListDataSource
+    Builder/        # SnapshotBuilder, ItemsBuilder, MixedSnapshotBuilder, DSL extensions
+    Mixed/          # AnyItem, DynamicCellRegistrar
     Configurations/ # SimpleList, GroupedList, OutlineList
     Extensions/     # LayoutHelpers, CellViewModel+Identifiable
 Tests/
-  ListKitTests/     # 91 tests — diff, snapshot, data source
-  ListsTests/       # 43 tests — builder, configurations, view models
-  Benchmarks/       # 18 benchmarks — Apple, IGListKit, ReactiveCollectionsKit
-Example/            # 5-tab demo app
+  ListKitTests/     # Diff, snapshot, data source
+  ListsTests/       # Builder, configurations, view models
+  Benchmarks/       # Apple, IGListKit, ReactiveCollectionsKit
+Example/            # Demo app
 ```
 
 ## License

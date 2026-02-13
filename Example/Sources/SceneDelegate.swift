@@ -15,6 +15,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             makeTab(ListKitExampleViewController(), title: "ListKit", icon: "list.bullet"),
             makeTab(GroupedListExampleViewController(), title: "Manual", icon: "rectangle.3.group"),
             makeTab(DSLExampleViewController(), title: "DSL", icon: "chevron.left.forwardslash.chevron.right"),
+            makeTab(MixedExampleViewController(), title: "Mixed", icon: "square.stack.3d.up"),
             makeTab(OutlineExampleViewController(), title: "Outline", icon: "list.triangle"),
             makeTab(SwiftUIExampleViewController(), title: "SwiftUI", icon: "swift"),
             makeTab(LiveExampleViewController(), title: "Live", icon: "chart.line.uptrend.xyaxis"),
