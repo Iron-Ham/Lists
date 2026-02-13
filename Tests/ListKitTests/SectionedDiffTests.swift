@@ -209,4 +209,63 @@ struct SectionedDiffTests {
         let changeset = SectionedDiff.diff(old: old, new: new)
         #expect(changeset.isEmpty)
     }
+
+    // MARK: - Cross-Boundary Item Transitions
+
+    @Test func itemSurvivesDeletedSection() {
+        // Item 1 is in section A (deleted), but reappears in section B (survives)
+        var old = DiffableDataSourceSnapshot<String, Int>()
+        old.appendSections(["A", "B"])
+        old.appendItems([1, 2], toSection: "A")
+        old.appendItems([3], toSection: "B")
+
+        var new = DiffableDataSourceSnapshot<String, Int>()
+        new.appendSections(["B"])
+        new.appendItems([1, 3], toSection: "B")
+
+        let changeset = SectionedDiff.diff(old: old, new: new)
+        // Section A is deleted (handles removal of item 2)
+        #expect(changeset.sectionDeletes == IndexSet([0]))
+        // Item 1 must be explicitly inserted into section B
+        let insertedItem1 = changeset.itemInserts.contains(IndexPath(item: 0, section: 0))
+        #expect(insertedItem1)
+    }
+
+    @Test func itemMovesToInsertedSection() {
+        // Item 2 moves from section A (survives) to section C (inserted)
+        var old = DiffableDataSourceSnapshot<String, Int>()
+        old.appendSections(["A"])
+        old.appendItems([1, 2], toSection: "A")
+
+        var new = DiffableDataSourceSnapshot<String, Int>()
+        new.appendSections(["A", "C"])
+        new.appendItems([1], toSection: "A")
+        new.appendItems([2], toSection: "C")
+
+        let changeset = SectionedDiff.diff(old: old, new: new)
+        // Section C is inserted (handles addition of item 2 there)
+        #expect(!changeset.sectionInserts.isEmpty)
+        // Item 2 must be explicitly deleted from section A
+        let deletedItem2 = changeset.itemDeletes.contains(IndexPath(item: 1, section: 0))
+        #expect(deletedItem2)
+    }
+
+    @Test func itemCrossesDeletedAndInsertedSection() {
+        // Item moves from a deleted section to an inserted section — both section ops handle it
+        var old = DiffableDataSourceSnapshot<String, Int>()
+        old.appendSections(["A"])
+        old.appendItems([1], toSection: "A")
+
+        var new = DiffableDataSourceSnapshot<String, Int>()
+        new.appendSections(["B"])
+        new.appendItems([1], toSection: "B")
+
+        let changeset = SectionedDiff.diff(old: old, new: new)
+        #expect(changeset.sectionDeletes == IndexSet([0]))
+        #expect(changeset.sectionInserts == IndexSet([0]))
+        // No explicit item operations needed — section ops handle everything
+        #expect(changeset.itemDeletes.isEmpty)
+        #expect(changeset.itemInserts.isEmpty)
+        #expect(changeset.itemMoves.isEmpty)
+    }
 }

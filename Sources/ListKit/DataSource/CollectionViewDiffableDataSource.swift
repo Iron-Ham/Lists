@@ -23,6 +23,10 @@ public final class CollectionViewDiffableDataSource<
     private var currentSnapshot = DiffableDataSourceSnapshot<SectionIdentifierType, ItemIdentifierType>()
     private var fallbackRegistrations: [String: UICollectionView.SupplementaryRegistration<UICollectionReusableView>] = [:]
 
+    /// Serializes completion-handler `apply()` calls so concurrent calls
+    /// don't race on `currentSnapshot` while a batch update is in flight.
+    private var applyTask: Task<Void, Never>?
+
     // MARK: - Initialization
 
     public init(collectionView: UICollectionView, cellProvider: @escaping CellProvider) {
@@ -46,13 +50,17 @@ public final class CollectionViewDiffableDataSource<
             new: snapshot
         )
 
-        if !animatingDifferences || changeset.isEmpty {
-            currentSnapshot = snapshot
-            collectionView.reloadData()
+        currentSnapshot = snapshot
+
+        // No structural changes — skip UI update entirely
+        if changeset.isEmpty {
             return
         }
 
-        currentSnapshot = snapshot
+        if !animatingDifferences {
+            collectionView.reloadData()
+            return
+        }
 
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             collectionView.performBatchUpdates {
@@ -80,7 +88,12 @@ public final class CollectionViewDiffableDataSource<
                     collectionView.moveItem(at: move.from, to: move.to)
                 }
             } completion: { _ in
-                // Reloads and reconfigures after batch completes
+                // Reloads and reconfigures run after the batch completes, using new indices.
+                // This matches Apple's NSDiffableDataSourceSnapshot behavior.
+                guard collectionView.window != nil else {
+                    continuation.resume()
+                    return
+                }
                 if !changeset.itemReloads.isEmpty {
                     collectionView.reloadItems(at: changeset.itemReloads)
                 }
@@ -92,13 +105,17 @@ public final class CollectionViewDiffableDataSource<
         }
     }
 
-    /// Convenience — completion handler variant
+    /// Convenience — completion handler variant. Applies are serialized to prevent
+    /// concurrent calls from racing on `currentSnapshot`.
     public func apply(
         _ snapshot: DiffableDataSourceSnapshot<SectionIdentifierType, ItemIdentifierType>,
         animatingDifferences: Bool = true,
         completion: (() -> Void)? = nil
     ) {
-        Task { @MainActor in
+        let previousTask = applyTask
+        applyTask = Task { @MainActor in
+            // Wait for any in-flight apply to finish before starting ours
+            _ = await previousTask?.value
             await apply(snapshot, animatingDifferences: animatingDifferences)
             completion?()
         }
@@ -146,10 +163,8 @@ public final class CollectionViewDiffableDataSource<
     }
 
     public func itemIdentifier(for indexPath: IndexPath) -> ItemIdentifierType? {
-        let section = currentSnapshot.sectionIdentifiers[indexPath.section]
-        let items = currentSnapshot.itemIdentifiers(inSection: section)
-        guard indexPath.item < items.count else { return nil }
-        return items[indexPath.item]
+        guard indexPath.section < currentSnapshot.numberOfSections else { return nil }
+        return currentSnapshot.itemIdentifier(inSectionAt: indexPath.section, itemIndex: indexPath.item)
     }
 
     public func indexPath(for itemIdentifier: ItemIdentifierType) -> IndexPath? {
@@ -178,14 +193,13 @@ public final class CollectionViewDiffableDataSource<
     }
 
     public func collectionView(_: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        let sectionID = currentSnapshot.sectionIdentifiers[section]
-        return currentSnapshot.numberOfItems(inSection: sectionID)
+        currentSnapshot.numberOfItems(inSectionAt: section)
     }
 
     public func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-        let sectionID = currentSnapshot.sectionIdentifiers[indexPath.section]
-        let items = currentSnapshot.itemIdentifiers(inSection: sectionID)
-        let itemID = items[indexPath.item]
+        guard let itemID = currentSnapshot.itemIdentifier(inSectionAt: indexPath.section, itemIndex: indexPath.item) else {
+            return UICollectionViewCell()
+        }
         return cellProvider(collectionView, indexPath, itemID) ?? UICollectionViewCell()
     }
 

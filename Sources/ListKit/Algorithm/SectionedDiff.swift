@@ -2,6 +2,10 @@ import Foundation
 
 enum SectionedDiff {
     /// Computes a `StagedChangeset` by diffing two snapshots at both the section and item level.
+    ///
+    /// Uses per-section HeckelDiff for surviving sections, skipping sections whose items
+    /// haven't changed. Cross-section item moves are detected by reconciling per-section
+    /// deletes and inserts.
     static func diff<SectionID: Hashable & Sendable, ItemID: Hashable & Sendable>(
         old: DiffableDataSourceSnapshot<SectionID, ItemID>,
         new: DiffableDataSourceSnapshot<SectionID, ItemID>
@@ -13,100 +17,89 @@ enum SectionedDiff {
         let sectionInserts = IndexSet(sectionDiff.inserts)
         let sectionMoves = sectionDiff.moves
 
-        // Build sets for quick lookup of surviving sections
-        let deletedSectionSet = Set(sectionDiff.deletes.map { old.sectionIdentifiers[$0] })
-        let insertedSectionSet = Set(sectionDiff.inserts.map { new.sectionIdentifiers[$0] })
-
-        // 2. Build old item location map: ItemID → IndexPath (in old snapshot)
-        var oldItemLocations: [ItemID: IndexPath] = [:]
-        for (sectionIdx, sectionID) in old.sectionIdentifiers.enumerated() {
-            for (itemIdx, itemID) in old.itemIdentifiers(inSection: sectionID).enumerated() {
-                oldItemLocations[itemID] = IndexPath(item: itemIdx, section: sectionIdx)
-            }
-        }
-
-        // 3. Build new item location map: ItemID → IndexPath (in new snapshot)
-        var newItemLocations: [ItemID: IndexPath] = [:]
-        for (sectionIdx, sectionID) in new.sectionIdentifiers.enumerated() {
-            for (itemIdx, itemID) in new.itemIdentifiers(inSection: sectionID).enumerated() {
-                newItemLocations[itemID] = IndexPath(item: itemIdx, section: sectionIdx)
-            }
-        }
-
-        // 4. Compute item-level changes for surviving sections
+        // 2. Per-section item diffing for matched (surviving) sections.
+        //    For each matched pair, compare item arrays — skip if identical.
+        //    Otherwise run HeckelDiff per-section and collect operations.
         var itemDeletes: [IndexPath] = []
         var itemInserts: [IndexPath] = []
         var itemMoves: [(from: IndexPath, to: IndexPath)] = []
 
-        // Track all items that exist in both old and new (for move detection)
-        let oldItemSet = Set(oldItemLocations.keys)
-        let newItemSet = Set(newItemLocations.keys)
+        // Items that HeckelDiff reports as deleted/inserted within surviving sections.
+        // An item deleted from section A and inserted into section B = cross-section move.
+        var crossDeleteCandidates: [ItemID: IndexPath] = [:]
+        var crossInsertCandidates: [ItemID: IndexPath] = [:]
 
-        // Items deleted: existed in old but not in new, AND their section wasn't deleted
-        // (If the section was deleted, the section delete handles removal)
-        for itemID in oldItemSet.subtracting(newItemSet) {
-            guard let oldPath = oldItemLocations[itemID] else { continue }
-            let sectionID = old.sectionIdentifiers[oldPath.section]
-            if !deletedSectionSet.contains(sectionID) {
-                itemDeletes.append(oldPath)
-            }
-        }
-
-        // Items inserted: exist in new but not in old, AND their section wasn't inserted
-        // (If the section was inserted, the section insert handles addition)
-        for itemID in newItemSet.subtracting(oldItemSet) {
-            guard let newPath = newItemLocations[itemID] else { continue }
-            let sectionID = new.sectionIdentifiers[newPath.section]
-            if !insertedSectionSet.contains(sectionID) {
-                itemInserts.append(newPath)
-            }
-        }
-
-        // Items that exist in both: check for moves
-        // Build old→new section index mapping for matched sections
-        var oldSectionToNew: [Int: Int] = [:]
         for match in sectionDiff.matched {
-            oldSectionToNew[match.old] = match.new
-        }
+            let oldSectionIdx = match.old
+            let newSectionIdx = match.new
+            let oldSectionID = old.sectionIdentifiers[oldSectionIdx]
+            let newSectionID = new.sectionIdentifiers[newSectionIdx]
 
-        for itemID in oldItemSet.intersection(newItemSet) {
-            guard let oldPath = oldItemLocations[itemID],
-                  let newPath = newItemLocations[itemID] else { continue }
+            let oldItems = old.itemIdentifiers(inSection: oldSectionID)
+            let newItems = new.itemIdentifiers(inSection: newSectionID)
 
-            let oldSectionID = old.sectionIdentifiers[oldPath.section]
-            let newSectionID = new.sectionIdentifiers[newPath.section]
-
-            // Skip if either section was deleted or inserted
-            if deletedSectionSet.contains(oldSectionID) || insertedSectionSet.contains(newSectionID) {
+            // Fast path: identical items → no changes in this section
+            if oldItems == newItems {
                 continue
             }
 
-            // Check if the item moved (different position in the new layout)
-            if oldPath != newPath || oldSectionID != newSectionID {
-                // Use old section's new position for comparison
-                let mappedOldSection = oldSectionToNew[oldPath.section]
-                if mappedOldSection != newPath.section || oldPath.item != newPath.item {
-                    itemMoves.append((from: oldPath, to: newPath))
+            let itemDiff = HeckelDiff.diff(old: oldItems, new: newItems)
+
+            // Within-section moves
+            for move in itemDiff.moves {
+                itemMoves.append((
+                    from: IndexPath(item: move.from, section: oldSectionIdx),
+                    to: IndexPath(item: move.to, section: newSectionIdx)
+                ))
+            }
+
+            // Per-section deletes: real deletes or cross-section move sources
+            for deleteIdx in itemDiff.deletes {
+                let itemID = oldItems[deleteIdx]
+                crossDeleteCandidates[itemID] = IndexPath(item: deleteIdx, section: oldSectionIdx)
+            }
+
+            // Per-section inserts: real inserts or cross-section move destinations
+            for insertIdx in itemDiff.inserts {
+                let itemID = newItems[insertIdx]
+                crossInsertCandidates[itemID] = IndexPath(item: insertIdx, section: newSectionIdx)
+            }
+        }
+
+        // 3. Reconcile cross-section moves between surviving sections.
+        //    Items deleted from one section and inserted into another → cross-section move.
+        for (itemID, fromPath) in crossDeleteCandidates {
+            if let toPath = crossInsertCandidates.removeValue(forKey: itemID) {
+                itemMoves.append((from: fromPath, to: toPath))
+            } else {
+                itemDeletes.append(fromPath)
+            }
+        }
+        // Remaining insert candidates are real inserts
+        itemInserts.append(contentsOf: crossInsertCandidates.values)
+
+        // 4. Collect reloads and reconfigures from the new snapshot
+        var itemReloads: [IndexPath] = []
+        var itemReconfigures: [IndexPath] = []
+
+        if !new.reloadedItemIdentifiers.isEmpty || !new.reconfiguredItemIdentifiers.isEmpty {
+            itemReloads.reserveCapacity(new.reloadedItemIdentifiers.count)
+            itemReconfigures.reserveCapacity(new.reconfiguredItemIdentifiers.count)
+
+            for (sectionIdx, sectionID) in new.sectionIdentifiers.enumerated() {
+                for (itemIdx, itemID) in new.itemIdentifiers(inSection: sectionID).enumerated() {
+                    if new.reloadedItemIdentifiers.contains(itemID) {
+                        itemReloads.append(IndexPath(item: itemIdx, section: sectionIdx))
+                    }
+                    if new.reconfiguredItemIdentifiers.contains(itemID) {
+                        itemReconfigures.append(IndexPath(item: itemIdx, section: sectionIdx))
+                    }
                 }
             }
         }
 
-        // 5. Collect reloads and reconfigures from the new snapshot (using new indices)
-        var itemReloads: [IndexPath] = []
-        for itemID in new.reloadedItemIdentifiers {
-            if let newPath = newItemLocations[itemID] {
-                itemReloads.append(newPath)
-            }
-        }
-
-        var itemReconfigures: [IndexPath] = []
-        for itemID in new.reconfiguredItemIdentifiers {
-            if let newPath = newItemLocations[itemID] {
-                itemReconfigures.append(newPath)
-            }
-        }
-
-        // 6. Sort for deterministic batch update ordering
+        // 5. Sort for deterministic batch update ordering
+        // Deletes descending (process from end to start), inserts ascending
         let sortedItemDeletes = itemDeletes.sorted { ($0.section, $0.item) > ($1.section, $1.item) }
         let sortedItemInserts = itemInserts.sorted { ($0.section, $0.item) < ($1.section, $1.item) }
 
