@@ -61,6 +61,7 @@ let project = Project(
             sources: ["Tests/Benchmarks/**"],
             dependencies: [
                 .target(name: "ListKit"),
+                .target(name: "Lists"),
                 .external(name: "IGListDiffKit"),
                 .external(name: "ReactiveCollectionsKit"),
             ],

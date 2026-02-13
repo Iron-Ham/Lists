@@ -9,9 +9,8 @@ import Testing
 /// flat `NSArray<id<IGListDiffable>>` (Obj-C++). ListKit uses Swift generics with
 /// `Hashable` value types.
 ///
-/// For fairness, both sides perform equivalent work:
-/// - IGListKit: diff two flat arrays
-/// - ListKit: build two snapshots + run `SectionedDiff.diff` (full pipeline)
+/// Both sides pre-build their data structures before the timed block so only
+/// the diff algorithm itself is measured.
 struct IGListDiffBenchmarks {
     // MARK: - Diff 10k: 50% overlap (5k deletes, 5k matches, 5k inserts)
 
@@ -23,14 +22,14 @@ struct IGListDiffBenchmarks {
             _ = ListDiff(oldArray: old, newArray: new, option: .equality)
         }
 
-        // ListKit: build two snapshots + diff (full pipeline)
+        var oldSnap = DiffableDataSourceSnapshot<String, Int>()
+        oldSnap.appendSections(["main"])
+        oldSnap.appendItems(Array(0 ..< 10000), toSection: "main")
+        var newSnap = DiffableDataSourceSnapshot<String, Int>()
+        newSnap.appendSections(["main"])
+        newSnap.appendItems(Array(5000 ..< 15000), toSection: "main")
+
         let lkTime = benchmark {
-            var oldSnap = DiffableDataSourceSnapshot<String, Int>()
-            oldSnap.appendSections(["main"])
-            oldSnap.appendItems(Array(0 ..< 10000), toSection: "main")
-            var newSnap = DiffableDataSourceSnapshot<String, Int>()
-            newSnap.appendSections(["main"])
-            newSnap.appendItems(Array(5000 ..< 15000), toSection: "main")
             _ = SectionedDiff.diff(old: oldSnap, new: newSnap)
         }
 
@@ -47,13 +46,14 @@ struct IGListDiffBenchmarks {
             _ = ListDiff(oldArray: old, newArray: new, option: .equality)
         }
 
+        var oldSnap = DiffableDataSourceSnapshot<String, Int>()
+        oldSnap.appendSections(["main"])
+        oldSnap.appendItems(Array(0 ..< 50000), toSection: "main")
+        var newSnap = DiffableDataSourceSnapshot<String, Int>()
+        newSnap.appendSections(["main"])
+        newSnap.appendItems(Array(25000 ..< 75000), toSection: "main")
+
         let lkTime = benchmark {
-            var oldSnap = DiffableDataSourceSnapshot<String, Int>()
-            oldSnap.appendSections(["main"])
-            oldSnap.appendItems(Array(0 ..< 50000), toSection: "main")
-            var newSnap = DiffableDataSourceSnapshot<String, Int>()
-            newSnap.appendSections(["main"])
-            newSnap.appendItems(Array(25000 ..< 75000), toSection: "main")
             _ = SectionedDiff.diff(old: oldSnap, new: newSnap)
         }
 
@@ -69,13 +69,14 @@ struct IGListDiffBenchmarks {
             _ = ListDiff(oldArray: items, newArray: items, option: .equality)
         }
 
+        var oldSnap = DiffableDataSourceSnapshot<String, Int>()
+        oldSnap.appendSections(["main"])
+        oldSnap.appendItems(Array(0 ..< 10000), toSection: "main")
+        var newSnap = DiffableDataSourceSnapshot<String, Int>()
+        newSnap.appendSections(["main"])
+        newSnap.appendItems(Array(0 ..< 10000), toSection: "main")
+
         let lkTime = benchmark {
-            var oldSnap = DiffableDataSourceSnapshot<String, Int>()
-            oldSnap.appendSections(["main"])
-            oldSnap.appendItems(Array(0 ..< 10000), toSection: "main")
-            var newSnap = DiffableDataSourceSnapshot<String, Int>()
-            newSnap.appendSections(["main"])
-            newSnap.appendItems(Array(0 ..< 10000), toSection: "main")
             _ = SectionedDiff.diff(old: oldSnap, new: newSnap)
         }
 
@@ -96,7 +97,6 @@ struct IGListDiffBenchmarks {
             _ = ListDiff(oldArray: old, newArray: shuffled, option: .equality)
         }
 
-        // Equivalent shuffle for ListKit using Int arrays
         let oldInts = Array(0 ..< 10000)
         var shuffledInts = oldInts
         for i in stride(from: shuffledInts.count - 1, through: 1, by: -1) {
@@ -104,13 +104,14 @@ struct IGListDiffBenchmarks {
             shuffledInts.swapAt(i, j)
         }
 
+        var oldSnap = DiffableDataSourceSnapshot<String, Int>()
+        oldSnap.appendSections(["main"])
+        oldSnap.appendItems(oldInts, toSection: "main")
+        var newSnap = DiffableDataSourceSnapshot<String, Int>()
+        newSnap.appendSections(["main"])
+        newSnap.appendItems(shuffledInts, toSection: "main")
+
         let lkTime = benchmark {
-            var oldSnap = DiffableDataSourceSnapshot<String, Int>()
-            oldSnap.appendSections(["main"])
-            oldSnap.appendItems(oldInts, toSection: "main")
-            var newSnap = DiffableDataSourceSnapshot<String, Int>()
-            newSnap.appendSections(["main"])
-            newSnap.appendItems(shuffledInts, toSection: "main")
             _ = SectionedDiff.diff(old: oldSnap, new: newSnap)
         }
 
