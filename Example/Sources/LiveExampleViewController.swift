@@ -195,25 +195,18 @@ final class LiveExampleViewController: UIViewController {
         let gainers = stocks.filter(\.isGainer).sorted { $0.change > $1.change }
         let losers = stocks.filter { !$0.isGainer }.sorted { $0.change < $1.change }
 
-        // Stocks move between gainers↔losers as their change value flips sign,
-        // showcasing animated cross-section moves driven by the Heckel diff.
+        // Since StockItem hashes by id only, the diff detects structural changes
+        // (cross-section moves when a stock flips gainer↔loser) but doesn't know
+        // that prices changed. Mark all items for reconfigure so visible cells
+        // get updated in-place after animations complete.
+        var snapshot = ListDataSource<SectionID, StockItem>.Snapshot()
+        snapshot.appendSections([.gainers, .losers])
+        snapshot.appendItems(gainers, toSection: .gainers)
+        snapshot.appendItems(losers, toSection: .losers)
+        snapshot.reconfigureItems(gainers + losers)
+
         Task {
-            await dataSource.apply(animatingDifferences: animated) {
-                SnapshotSection(.gainers) {
-                    gainers
-                }
-                SnapshotSection(.losers) {
-                    losers
-                }
-            }
-            // Since StockItem hashes by id only, the diff detects moves but doesn't
-            // know that prices changed. Reconfigure visible cells after animations complete.
-            for cell in collectionView.visibleCells {
-                guard let indexPath = collectionView.indexPath(for: cell),
-                      let item = dataSource.itemIdentifier(for: indexPath),
-                      let listCell = cell as? UICollectionViewListCell else { continue }
-                item.configure(listCell)
-            }
+            await dataSource.apply(snapshot, animatingDifferences: animated)
         }
     }
 

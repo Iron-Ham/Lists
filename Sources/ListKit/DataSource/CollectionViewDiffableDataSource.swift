@@ -62,6 +62,21 @@ public final class CollectionViewDiffableDataSource<
             return
         }
 
+        // Fast path: only reloads/reconfigures, no structural changes.
+        // Skip performBatchUpdates entirely — apply directly without the batch overhead.
+        if !changeset.hasStructuralChanges {
+            if !changeset.sectionReloads.isEmpty {
+                collectionView.reloadSections(changeset.sectionReloads)
+            }
+            if !changeset.itemReloads.isEmpty {
+                collectionView.reloadItems(at: changeset.itemReloads)
+            }
+            if !changeset.itemReconfigures.isEmpty {
+                collectionView.reconfigureItems(at: changeset.itemReconfigures)
+            }
+            return
+        }
+
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             collectionView.performBatchUpdates {
                 // Deletes (old indices)

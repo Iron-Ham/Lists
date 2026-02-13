@@ -356,4 +356,44 @@ struct SectionedDiffTests {
         #expect(changeset.itemInserts.isEmpty)
         #expect(changeset.itemMoves.isEmpty)
     }
+
+    // MARK: - StagedChangeset Properties
+
+    @Test func changesetHasStructuralChanges() {
+        var old = DiffableDataSourceSnapshot<String, Int>()
+        old.appendSections(["A"])
+        old.appendItems([1, 2, 3], toSection: "A")
+
+        // Reconfigure-only: no structural changes
+        var reconfigureOnly = DiffableDataSourceSnapshot<String, Int>()
+        reconfigureOnly.appendSections(["A"])
+        reconfigureOnly.appendItems([1, 2, 3], toSection: "A")
+        reconfigureOnly.reconfigureItems([1])
+
+        let reconfigureChangeset = SectionedDiff.diff(old: old, new: reconfigureOnly)
+        #expect(!reconfigureChangeset.isEmpty)
+        #expect(!reconfigureChangeset.hasStructuralChanges)
+
+        // Structural: item insert
+        var withInsert = DiffableDataSourceSnapshot<String, Int>()
+        withInsert.appendSections(["A"])
+        withInsert.appendItems([1, 2, 3, 4], toSection: "A")
+
+        let insertChangeset = SectionedDiff.diff(old: old, new: withInsert)
+        #expect(insertChangeset.hasStructuralChanges)
+    }
+
+    @Test func changesetEquatable() {
+        var old = DiffableDataSourceSnapshot<String, Int>()
+        old.appendSections(["A"])
+        old.appendItems([1, 2], toSection: "A")
+
+        var new = DiffableDataSourceSnapshot<String, Int>()
+        new.appendSections(["A"])
+        new.appendItems([1, 2, 3], toSection: "A")
+
+        let changeset1 = SectionedDiff.diff(old: old, new: new)
+        let changeset2 = SectionedDiff.diff(old: old, new: new)
+        #expect(changeset1 == changeset2)
+    }
 }
