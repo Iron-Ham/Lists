@@ -2,6 +2,7 @@ public struct DiffableDataSourceSectionSnapshot<ItemIdentifierType: Hashable & S
     // MARK: - Internal Storage
 
     public private(set) var items: [ItemIdentifierType] = []
+    private var itemSet: Set<ItemIdentifierType> = []
     private var parentMap: [ItemIdentifierType: ItemIdentifierType] = [:]
     private var childrenMap: [ItemIdentifierType: [ItemIdentifierType]] = [:]
     private var expandedItems: Set<ItemIdentifierType> = []
@@ -41,12 +42,14 @@ public struct DiffableDataSourceSectionSnapshot<ItemIdentifierType: Hashable & S
             // Append as root items
             self.items.append(contentsOf: items)
         }
+        itemSet.formUnion(items)
     }
 
     public mutating func insert(_ items: [ItemIdentifierType], before item: ItemIdentifierType) {
         guard let index = self.items.firstIndex(of: item) else { return }
 
         self.items.insert(contentsOf: items, at: index)
+        itemSet.formUnion(items)
 
         // Update parent/children maps if the reference item has a parent
         if let parent = parentMap[item] {
@@ -75,6 +78,7 @@ public struct DiffableDataSourceSectionSnapshot<ItemIdentifierType: Hashable & S
         }
 
         self.items.insert(contentsOf: items, at: insertIndex)
+        itemSet.formUnion(items)
 
         // Update parent/children maps if the reference item has a parent
         if let parent = parentMap[item] {
@@ -90,8 +94,26 @@ public struct DiffableDataSourceSectionSnapshot<ItemIdentifierType: Hashable & S
     }
 
     public mutating func delete(_ items: [ItemIdentifierType]) {
+        // Collect all items to delete including descendants
+        var toDelete = Set<ItemIdentifierType>(minimumCapacity: items.count)
         for item in items {
-            deleteRecursive(item)
+            toDelete.insert(item)
+            collectDescendants(of: item, into: &toDelete)
+        }
+
+        // Single-pass removal from flat list
+        self.items.removeAll { toDelete.contains($0) }
+        itemSet.subtract(toDelete)
+
+        // Clean up maps
+        for item in toDelete {
+            // Remove from parent's children list only if the parent survives
+            if let parent = parentMap[item], !toDelete.contains(parent) {
+                childrenMap[parent]?.removeAll { $0 == item }
+            }
+            parentMap.removeValue(forKey: item)
+            childrenMap.removeValue(forKey: item)
+            expandedItems.remove(item)
         }
     }
 
@@ -106,6 +128,7 @@ public struct DiffableDataSourceSectionSnapshot<ItemIdentifierType: Hashable & S
 
         if includingParent {
             newSnapshot.items.append(item)
+            newSnapshot.itemSet.insert(item)
         }
 
         // Add all descendants
@@ -128,7 +151,7 @@ public struct DiffableDataSourceSectionSnapshot<ItemIdentifierType: Hashable & S
     }
 
     public func contains(_ item: ItemIdentifierType) -> Bool {
-        items.contains(item)
+        itemSet.contains(item)
     }
 
     public func level(of item: ItemIdentifierType) -> Int {
@@ -173,31 +196,41 @@ public struct DiffableDataSourceSectionSnapshot<ItemIdentifierType: Hashable & S
     }
 
     public var visibleItems: [ItemIdentifierType] {
-        items.filter { isVisible($0) }
+        // Single-pass top-down: an item is visible iff it has no parent,
+        // or its parent is both expanded and visible. We walk the flat list
+        // (which is already in depth-first order) and track visibility per item.
+        guard !items.isEmpty else { return [] }
+        var visible: [ItemIdentifierType] = []
+        visible.reserveCapacity(items.count)
+        var isVisibleMap: [ItemIdentifierType: Bool] = [:]
+        isVisibleMap.reserveCapacity(items.count)
+
+        for item in items {
+            guard let parent = parentMap[item] else {
+                // Root item — always visible
+                isVisibleMap[item] = true
+                visible.append(item)
+                continue
+            }
+            let parentVisible = isVisibleMap[parent] ?? false
+            let parentExpanded = expandedItems.contains(parent)
+            let itemVisible = parentVisible && parentExpanded
+            isVisibleMap[item] = itemVisible
+            if itemVisible {
+                visible.append(item)
+            }
+        }
+        return visible
     }
 
     // MARK: - Private Helpers
 
-    private mutating func deleteRecursive(_ item: ItemIdentifierType) {
-        // Delete all children first
-        if let children = childrenMap[item] {
-            for child in children {
-                deleteRecursive(child)
-            }
+    private func collectDescendants(of item: ItemIdentifierType, into set: inout Set<ItemIdentifierType>) {
+        guard let children = childrenMap[item] else { return }
+        for child in children {
+            set.insert(child)
+            collectDescendants(of: child, into: &set)
         }
-
-        // Remove from parent's children list
-        if let parent = parentMap[item] {
-            childrenMap[parent]?.removeAll { $0 == item }
-        }
-
-        // Clean up maps
-        parentMap.removeValue(forKey: item)
-        childrenMap.removeValue(forKey: item)
-        expandedItems.remove(item)
-
-        // Remove from flat list
-        items.removeAll { $0 == item }
     }
 
     private func isDescendant(_ item: ItemIdentifierType, of ancestor: ItemIdentifierType) -> Bool {
@@ -216,6 +249,7 @@ public struct DiffableDataSourceSectionSnapshot<ItemIdentifierType: Hashable & S
 
         for child in children {
             snapshot.items.append(child)
+            snapshot.itemSet.insert(child)
             addDescendants(of: child, to: &snapshot)
         }
     }

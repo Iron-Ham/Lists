@@ -154,11 +154,15 @@ benchmark:
 	xcodebuild test \
 		-workspace ListKit.xcworkspace \
 		-scheme Benchmarks \
+		-configuration Release \
+		ENABLE_TESTABILITY=YES \
 		-destination '$(DESTINATION)' \
 		-derivedDataPath $(DERIVED_DATA) \
 		| xcpretty || xcodebuild test \
 		-workspace ListKit.xcworkspace \
 		-scheme Benchmarks \
+		-configuration Release \
+		ENABLE_TESTABILITY=YES \
 		-destination '$(DESTINATION)' \
 		-derivedDataPath $(DERIVED_DATA)
 

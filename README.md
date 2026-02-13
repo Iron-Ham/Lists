@@ -216,19 +216,19 @@ All types are `Sendable`. The data source is `@MainActor`. Snapshots are value t
 
 ## Benchmarks
 
-All benchmarks use median-of-15 with 5 warmup iterations. Run on Apple Silicon.
+All benchmarks run in **Release configuration** with median-of-15 and 5 warmup iterations on Apple Silicon.
 
 ### vs Apple's NSDiffableDataSourceSnapshot
 
 | Operation | ListKit | Apple | Speedup |
 |:---|---:|---:|---:|
-| Build 10k items | 0.002 ms | 1.261 ms | **657.8x** |
-| Build 50k items | 0.006 ms | 6.051 ms | **961.6x** |
-| Build 100 sections x 100 | 0.716 ms | 4.725 ms | **6.6x** |
-| Delete 5k from 10k | 1.167 ms | 2.332 ms | **2.0x** |
-| Delete 25/50 sections | 0.377 ms | 2.099 ms | **5.6x** |
-| Reload 5k items | 0.452 ms | 1.566 ms | **3.5x** |
-| Query itemIdentifiers 100x | 0.075 ms | 46.205 ms | **619.5x** |
+| Build 10k items | 0.002 ms | 1.308 ms | **805.0x** |
+| Build 50k items | 0.006 ms | 6.106 ms | **957.7x** |
+| Build 100 sections x 100 | 0.058 ms | 4.164 ms | **71.6x** |
+| Delete 5k from 10k | 1.176 ms | 2.323 ms | **2.0x** |
+| Delete 25/50 sections | 0.042 ms | 1.760 ms | **41.6x** |
+| Reload 5k items | 0.111 ms | 1.582 ms | **14.3x** |
+| Query itemIdentifiers 100x | 0.052 ms | 46.258 ms | **884.6x** |
 
 ListKit snapshots are pure Swift value types with flat array storage and a lazy reverse index. Apple's `NSDiffableDataSourceSnapshot` is backed by Objective-C runtime overhead and per-query hashing.
 
@@ -238,12 +238,12 @@ Both libraries implement Paul Heckel's O(n) diff. IGListKit's is Objective-C++; 
 
 | Operation | IGListKit | ListKit | Notes |
 |:---|---:|---:|:---|
-| Diff 10k (50% overlap) | 15.5 ms | 25.7 ms | IGListKit's C++ is faster for raw diffing |
-| Diff 50k (50% overlap) | 81.3 ms | 147.6 ms | Same pattern at scale |
-| Diff no-change 10k | 13.2 ms | 8.2 ms | ListKit wins identity case |
-| Diff shuffle 10k | 13.2 ms | 7.6 ms | ListKit wins all-moves case |
+| Diff 10k (50% overlap) | 11.8 ms | 13.1 ms | Near-parity at common scale |
+| Diff 50k (50% overlap) | 55.4 ms | 75.9 ms | IGListKit's C++ is faster for raw diffing |
+| Diff no-change 10k | 10.4 ms | 0.1 ms | **94x** — per-section skip makes this free |
+| Diff shuffle 10k | 10.3 ms | 4.5 ms | **2.3x** ListKit wins all-moves case |
 
-IGListKit's Obj-C++ implementation wins on raw diff throughput with heavy churn. ListKit wins on no-change and move-heavy workloads — the common cases for incremental UI updates. ListKit also includes sectioned structure, `Sendable` safety, and full `UICollectionViewDiffableDataSource` compatibility that IGListKit doesn't provide.
+Per-section diffing skips unchanged sections entirely — the common case for incremental UI updates. For heavy churn (50% overlap), IGListKit's Obj-C++ wins on raw throughput, but ListKit provides sectioned structure, `Sendable` safety, and full `UICollectionViewDiffableDataSource` compatibility that IGListKit doesn't.
 
 ### vs ReactiveCollectionsKit
 
@@ -251,11 +251,11 @@ ReactiveCollectionsKit wraps Apple's `NSDiffableDataSourceSnapshot` with type-er
 
 | Operation | ListKit | ReactiveCollectionsKit | Apple | Speedup vs RC |
 |:---|---:|---:|---:|---:|
-| Build 10k items | 0.6 ms | 9.0 ms | 1.8 ms | **14.7x** |
-| Build 50k items | 3.0 ms | 43.6 ms | — | **14.7x** |
-| Build 100 sections x 100 | 0.7 ms | 8.7 ms | 4.7 ms | **12.4x** |
+| Build 10k items | 0.004 ms | 7.6 ms | 1.2 ms | **1,894x** |
+| Build 50k items | 0.014 ms | 37.8 ms | — | **2,701x** |
+| Build 100 sections x 100 | 0.063 ms | 7.6 ms | 4.1 ms | **121x** |
 
-Type erasure alone (`eraseToAnyViewModel()`) costs 8.7 ms for 10k cells — more than ListKit's entire snapshot build at the same scale.
+Type erasure alone (`eraseToAnyViewModel()`) costs 7.6 ms for 10k cells — more than ListKit's entire snapshot build at the same scale.
 
 Run benchmarks with:
 
@@ -297,7 +297,7 @@ Sources/
     Configurations/ # SimpleList, GroupedList, OutlineList
     Extensions/     # LayoutHelpers, CellViewModel+Identifiable
 Tests/
-  ListKitTests/     # 76 tests — diff, snapshot, data source
+  ListKitTests/     # 82 tests — diff, snapshot, data source
   ListsTests/       # 43 tests — builder, configurations, view models
   Benchmarks/       # 18 benchmarks — Apple, IGListKit, ReactiveCollectionsKit
 Example/            # 5-tab demo app

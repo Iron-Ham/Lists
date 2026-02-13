@@ -77,8 +77,9 @@ public struct DiffableDataSourceSnapshot<SectionIdentifierType: Hashable & Senda
     public mutating func deleteSections(_ identifiers: [SectionIdentifierType]) {
         let toDelete = Set(identifiers)
         var indicesToRemove: [Int] = []
-        indicesToRemove.reserveCapacity(identifiers.count)
-        for identifier in identifiers {
+        indicesToRemove.reserveCapacity(toDelete.count)
+        // Deduplicate via the Set to avoid double-counting numberOfItems
+        for identifier in toDelete {
             guard let idx = sectionIndex[identifier] else { continue }
             indicesToRemove.append(idx)
             let items = sectionItemArrays[idx]
@@ -130,14 +131,24 @@ public struct DiffableDataSourceSnapshot<SectionIdentifierType: Hashable & Senda
             preconditionFailure("No section available to append items")
         }
 
-        // Catch duplicate items early — same item in multiple sections produces corrupt changesets.
-        // Uses the lazy reverse map if available (O(1) per item), otherwise skips the check.
-        if let map = _itemToSection {
-            for identifier in identifiers {
-                assert(map[identifier] == nil,
-                       "Item \(identifier) already exists in another section. Each item must belong to exactly one section.")
+        // Validate no duplicate items — duplicates across sections corrupt changesets.
+        // Uses reverse map for O(1) cross-section check when available;
+        // always validates intra-batch duplicates.
+        #if DEBUG
+            if identifiers.count > 1 {
+                var seen = Set<ItemIdentifierType>(minimumCapacity: identifiers.count)
+                for identifier in identifiers {
+                    assert(seen.insert(identifier).inserted,
+                           "Duplicate item \(identifier) in appended batch")
+                }
             }
-        }
+            if let map = _itemToSection {
+                for identifier in identifiers {
+                    assert(map[identifier] == nil,
+                           "Item \(identifier) already exists in another section. Each item must belong to exactly one section.")
+                }
+            }
+        #endif
 
         sectionItemArrays[idx].append(contentsOf: identifiers)
         numberOfItems += identifiers.count
@@ -179,12 +190,15 @@ public struct DiffableDataSourceSnapshot<SectionIdentifierType: Hashable & Senda
 
     public mutating func deleteItems(_ identifiers: [ItemIdentifierType]) {
         let toDelete = Set(identifiers)
+        var remaining = toDelete.count
         // Scan all section arrays directly — avoids building the reverse map.
-        // Typically there are few sections, so iterating them is cheap.
         for sIdx in sectionItemArrays.indices {
             let before = sectionItemArrays[sIdx].count
             sectionItemArrays[sIdx].removeAll { toDelete.contains($0) }
-            numberOfItems -= (before - sectionItemArrays[sIdx].count)
+            let removed = before - sectionItemArrays[sIdx].count
+            numberOfItems -= removed
+            remaining -= removed
+            if remaining == 0 { break }
         }
         // Invalidate reverse map — it will rebuild lazily from the new state if needed.
         _itemToSection = nil
@@ -205,7 +219,9 @@ public struct DiffableDataSourceSnapshot<SectionIdentifierType: Hashable & Senda
               let fromSIdx = sectionIndex[fromSection],
               let toSIdx = sectionIndex[toSection] else { return }
 
-        sectionItemArrays[fromSIdx].removeAll { $0 == identifier }
+        if let idx = sectionItemArrays[fromSIdx].firstIndex(of: identifier) {
+            sectionItemArrays[fromSIdx].remove(at: idx)
+        }
 
         guard let toIndex = sectionItemArrays[toSIdx].firstIndex(of: toIdentifier) else { return }
         sectionItemArrays[toSIdx].insert(identifier, at: toIndex)
@@ -219,7 +235,9 @@ public struct DiffableDataSourceSnapshot<SectionIdentifierType: Hashable & Senda
               let fromSIdx = sectionIndex[fromSection],
               let toSIdx = sectionIndex[toSection] else { return }
 
-        sectionItemArrays[fromSIdx].removeAll { $0 == identifier }
+        if let idx = sectionItemArrays[fromSIdx].firstIndex(of: identifier) {
+            sectionItemArrays[fromSIdx].remove(at: idx)
+        }
 
         guard let toIndex = sectionItemArrays[toSIdx].firstIndex(of: toIdentifier) else { return }
         sectionItemArrays[toSIdx].insert(identifier, at: toIndex + 1)
@@ -252,6 +270,20 @@ public struct DiffableDataSourceSnapshot<SectionIdentifierType: Hashable & Senda
     public func itemIdentifiers(inSection identifier: SectionIdentifierType) -> [ItemIdentifierType] {
         guard let idx = sectionIndex[identifier] else { return [] }
         return sectionItemArrays[idx]
+    }
+
+    /// Fast path for data source queries — avoids section ID → index lookup.
+    func itemIdentifier(inSectionAt sectionIndex: Int, itemIndex: Int) -> ItemIdentifierType? {
+        guard sectionIndex < sectionItemArrays.count else { return nil }
+        let items = sectionItemArrays[sectionIndex]
+        guard itemIndex < items.count else { return nil }
+        return items[itemIndex]
+    }
+
+    /// Fast path for data source queries — avoids section ID lookup.
+    func numberOfItems(inSectionAt sectionIndex: Int) -> Int {
+        guard sectionIndex < sectionItemArrays.count else { return 0 }
+        return sectionItemArrays[sectionIndex].count
     }
 
     public func sectionIdentifier(containingItem identifier: ItemIdentifierType) -> SectionIdentifierType? {

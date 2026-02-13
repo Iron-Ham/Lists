@@ -134,9 +134,12 @@ enum HeckelDiff {
 
         // Pass 6: Collect results
         var deletes: [Int] = []
+        deletes.reserveCapacity(old.count)
         var inserts: [Int] = []
+        inserts.reserveCapacity(new.count)
         var moves: [(from: Int, to: Int)] = []
         var matched: [(old: Int, new: Int)] = []
+        matched.reserveCapacity(min(old.count, new.count))
 
         for (oldIdx, entry) in OA.enumerated() {
             if case .symbolTable = entry {

@@ -160,4 +160,50 @@ struct SnapshotTests {
         let snapshot = DiffableDataSourceSnapshot<String, Int>()
         let _: any Sendable = snapshot
     }
+
+    @Test func itemIdentifierFastPath() {
+        var snapshot = DiffableDataSourceSnapshot<String, Int>()
+        snapshot.appendSections(["A", "B"])
+        snapshot.appendItems([1, 2, 3], toSection: "A")
+        snapshot.appendItems([4, 5], toSection: "B")
+
+        // Direct index access — no section ID lookup
+        #expect(snapshot.itemIdentifier(inSectionAt: 0, itemIndex: 0) == 1)
+        #expect(snapshot.itemIdentifier(inSectionAt: 0, itemIndex: 2) == 3)
+        #expect(snapshot.itemIdentifier(inSectionAt: 1, itemIndex: 1) == 5)
+
+        // Bounds checks
+        #expect(snapshot.itemIdentifier(inSectionAt: 2, itemIndex: 0) == nil)
+        #expect(snapshot.itemIdentifier(inSectionAt: 0, itemIndex: 5) == nil)
+
+        // numberOfItems fast path
+        #expect(snapshot.numberOfItems(inSectionAt: 0) == 3)
+        #expect(snapshot.numberOfItems(inSectionAt: 1) == 2)
+        #expect(snapshot.numberOfItems(inSectionAt: 99) == 0)
+    }
+
+    @Test func deleteItemsEarlyExit() {
+        var snapshot = DiffableDataSourceSnapshot<String, Int>()
+        snapshot.appendSections(["A", "B", "C"])
+        snapshot.appendItems([1, 2], toSection: "A")
+        snapshot.appendItems([3, 4], toSection: "B")
+        snapshot.appendItems([5, 6], toSection: "C")
+
+        // Delete item from first section — should stop scanning early
+        snapshot.deleteItems([1])
+        #expect(snapshot.numberOfItems == 5)
+        #expect(snapshot.itemIdentifiers(inSection: "A") == [2])
+    }
+
+    @Test func deleteSectionsDeduplication() {
+        var snapshot = DiffableDataSourceSnapshot<String, Int>()
+        snapshot.appendSections(["A", "B"])
+        snapshot.appendItems([1, 2], toSection: "A")
+        snapshot.appendItems([3], toSection: "B")
+
+        // Passing duplicate section IDs should not corrupt numberOfItems
+        snapshot.deleteSections(["A", "A"])
+        #expect(snapshot.numberOfSections == 1)
+        #expect(snapshot.numberOfItems == 1)
+    }
 }
