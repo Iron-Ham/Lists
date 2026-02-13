@@ -24,20 +24,19 @@ enum HeckelDiff {
 
     // MARK: - SymbolEntry
 
-    /// Reference type for tracking symbol occurrences across old and new arrays.
-    final class SymbolEntry {
+    /// Value type tracking symbol occurrences across old and new arrays.
+    /// Stored in a contiguous array to avoid per-element heap allocations.
+    struct SymbolEntry {
         var oldCounter: Counter = .zero
         var newCounter: Counter = .zero
-        var oldIndex: Int?
-
-        init() {}
     }
 
     // MARK: - ArrayEntry
 
-    /// Entry in the OA/NA arrays, tracking either symbol table reference or matched index.
+    /// Entry in the OA/NA arrays, tracking either an index into the symbol
+    /// entries table or the matched index in the other array.
     enum ArrayEntry {
-        case symbolTable(SymbolEntry)
+        case tableIndex(Int)
         case indexInOther(Int)
     }
 
@@ -57,44 +56,54 @@ enum HeckelDiff {
             return DiffResult(deletes: [], inserts: [], moves: [], matched: [])
         }
 
-        var symbolTable: [T: SymbolEntry] = [:]
+        var entries: [SymbolEntry] = []
+        entries.reserveCapacity(old.count + new.count)
+        var symbolTable: [T: Int] = [:]
+        symbolTable.reserveCapacity(old.count + new.count)
         var NA: [ArrayEntry] = []
         var OA: [ArrayEntry] = []
 
         // Pass 1: Scan new array
         NA.reserveCapacity(new.count)
         for (index, element) in new.enumerated() {
-            let entry = symbolTable[element] ?? {
-                let newEntry = SymbolEntry()
-                symbolTable[element] = newEntry
-                return newEntry
-            }()
-            entry.newCounter.increment(at: index)
-            NA.append(.symbolTable(entry))
+            let entryIdx: Int
+            if let existing = symbolTable[element] {
+                entryIdx = existing
+            } else {
+                entryIdx = entries.count
+                entries.append(SymbolEntry())
+                symbolTable[element] = entryIdx
+            }
+            entries[entryIdx].newCounter.increment(at: index)
+            NA.append(.tableIndex(entryIdx))
         }
 
         // Pass 2: Scan old array
         OA.reserveCapacity(old.count)
         for (index, element) in old.enumerated() {
-            let entry = symbolTable[element] ?? {
-                let newEntry = SymbolEntry()
-                symbolTable[element] = newEntry
-                return newEntry
-            }()
-            entry.oldCounter.increment(at: index)
-            entry.oldIndex = index
-            OA.append(.symbolTable(entry))
+            let entryIdx: Int
+            if let existing = symbolTable[element] {
+                entryIdx = existing
+            } else {
+                entryIdx = entries.count
+                entries.append(SymbolEntry())
+                symbolTable[element] = entryIdx
+            }
+            entries[entryIdx].oldCounter.increment(at: index)
+            OA.append(.tableIndex(entryIdx))
         }
 
         // Pass 3: Match uniques
         for newIdx in 0 ..< NA.count {
-            if case let .symbolTable(entry) = NA[newIdx],
-               case let .one(oldIdx) = entry.oldCounter,
-               case let .one(checkedNewIdx) = entry.newCounter,
-               checkedNewIdx == newIdx
-            {
-                NA[newIdx] = .indexInOther(oldIdx)
-                OA[oldIdx] = .indexInOther(newIdx)
+            if case let .tableIndex(eIdx) = NA[newIdx] {
+                let entry = entries[eIdx]
+                if case let .one(oldIdx) = entry.oldCounter,
+                   case let .one(checkedNewIdx) = entry.newCounter,
+                   checkedNewIdx == newIdx
+                {
+                    NA[newIdx] = .indexInOther(oldIdx)
+                    OA[oldIdx] = .indexInOther(newIdx)
+                }
             }
         }
 
@@ -104,8 +113,8 @@ enum HeckelDiff {
                 let nextI = i + 1
                 let nextJ = j + 1
                 if nextI < new.count, nextJ < old.count {
-                    if case .symbolTable = NA[nextI],
-                       case .symbolTable = OA[nextJ],
+                    if case .tableIndex = NA[nextI],
+                       case .tableIndex = OA[nextJ],
                        new[nextI] == old[nextJ]
                     {
                         NA[nextI] = .indexInOther(nextJ)
@@ -121,8 +130,8 @@ enum HeckelDiff {
                 let prevI = i - 1
                 let prevJ = j - 1
                 if prevI >= 0, prevJ >= 0 {
-                    if case .symbolTable = NA[prevI],
-                       case .symbolTable = OA[prevJ],
+                    if case .tableIndex = NA[prevI],
+                       case .tableIndex = OA[prevJ],
                        new[prevI] == old[prevJ]
                     {
                         NA[prevI] = .indexInOther(prevJ)
@@ -142,14 +151,14 @@ enum HeckelDiff {
         matched.reserveCapacity(min(old.count, new.count))
 
         for (oldIdx, entry) in OA.enumerated() {
-            if case .symbolTable = entry {
+            if case .tableIndex = entry {
                 deletes.append(oldIdx)
             }
         }
 
         for (newIdx, entry) in NA.enumerated() {
             switch entry {
-            case .symbolTable:
+            case .tableIndex:
                 inserts.append(newIdx)
             case let .indexInOther(oldIdx):
                 matched.append((old: oldIdx, new: newIdx))

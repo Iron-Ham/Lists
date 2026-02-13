@@ -22,4 +22,29 @@ struct StagedChangeset<SectionID: Hashable, ItemID: Hashable>: Sendable {
             && itemReloads.isEmpty
             && itemReconfigures.isEmpty
     }
+
+    var hasStructuralChanges: Bool {
+        !sectionDeletes.isEmpty
+            || !sectionInserts.isEmpty
+            || !sectionMoves.isEmpty
+            || !itemDeletes.isEmpty
+            || !itemInserts.isEmpty
+            || !itemMoves.isEmpty
+    }
+}
+
+extension StagedChangeset: Equatable {
+    static func == (lhs: StagedChangeset, rhs: StagedChangeset) -> Bool {
+        lhs.sectionDeletes == rhs.sectionDeletes
+            && lhs.sectionInserts == rhs.sectionInserts
+            && lhs.sectionMoves.count == rhs.sectionMoves.count
+            && zip(lhs.sectionMoves, rhs.sectionMoves).allSatisfy { $0.from == $1.from && $0.to == $1.to }
+            && lhs.sectionReloads == rhs.sectionReloads
+            && lhs.itemDeletes == rhs.itemDeletes
+            && lhs.itemInserts == rhs.itemInserts
+            && lhs.itemMoves.count == rhs.itemMoves.count
+            && zip(lhs.itemMoves, rhs.itemMoves).allSatisfy { $0.from == $1.from && $0.to == $1.to }
+            && lhs.itemReloads == rhs.itemReloads
+            && lhs.itemReconfigures == rhs.itemReconfigures
+    }
 }

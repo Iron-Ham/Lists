@@ -72,6 +72,14 @@ public final class ListDataSource<SectionID: Hashable & Sendable, Item: CellView
         dataSource.indexPath(for: item)
     }
 
+    public func sectionIdentifier(for index: Int) -> SectionID? {
+        dataSource.sectionIdentifier(for: index)
+    }
+
+    public func index(for sectionIdentifier: SectionID) -> Int? {
+        dataSource.index(for: sectionIdentifier)
+    }
+
     // MARK: - Supplementary Views
 
     public var supplementaryViewProvider: CollectionViewDiffableDataSource<SectionID, Item>.SupplementaryViewProvider? {

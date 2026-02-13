@@ -195,6 +195,41 @@ struct SnapshotTests {
         #expect(snapshot.itemIdentifiers(inSection: "A") == [2])
     }
 
+    @Test func isEmptyProperty() {
+        var snapshot = DiffableDataSourceSnapshot<String, Int>()
+        #expect(snapshot.isEmpty)
+
+        snapshot.appendSections(["A"])
+        #expect(!snapshot.isEmpty)
+
+        snapshot.appendItems([1], toSection: "A")
+        #expect(!snapshot.isEmpty)
+
+        snapshot.deleteAllItems()
+        #expect(!snapshot.isEmpty) // sections still present
+
+        snapshot.deleteSections(["A"])
+        #expect(snapshot.isEmpty)
+    }
+
+    @Test func deleteItemsWithReverseMap() {
+        var snapshot = DiffableDataSourceSnapshot<String, Int>()
+        snapshot.appendSections(["A", "B", "C"])
+        snapshot.appendItems([1, 2], toSection: "A")
+        snapshot.appendItems([3, 4], toSection: "B")
+        snapshot.appendItems([5, 6], toSection: "C")
+
+        // Trigger reverse map build via insertItems (uses ensureItemToSection)
+        snapshot.insertItems([7], afterItem: 6)
+        #expect(snapshot.numberOfItems == 7)
+
+        // Now deleteItems should use the reverse map fast path
+        snapshot.deleteItems([3, 7])
+        #expect(snapshot.numberOfItems == 5)
+        #expect(snapshot.itemIdentifiers(inSection: "B") == [4])
+        #expect(snapshot.itemIdentifiers(inSection: "C") == [5, 6])
+    }
+
     @Test func deleteSectionsDeduplication() {
         var snapshot = DiffableDataSourceSnapshot<String, Int>()
         snapshot.appendSections(["A", "B"])

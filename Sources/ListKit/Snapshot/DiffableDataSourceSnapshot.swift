@@ -190,18 +190,33 @@ public struct DiffableDataSourceSnapshot<SectionIdentifierType: Hashable & Senda
 
     public mutating func deleteItems(_ identifiers: [ItemIdentifierType]) {
         let toDelete = Set(identifiers)
-        var remaining = toDelete.count
-        // Scan all section arrays directly — avoids building the reverse map.
-        for sIdx in sectionItemArrays.indices {
-            let before = sectionItemArrays[sIdx].count
-            sectionItemArrays[sIdx].removeAll { toDelete.contains($0) }
-            let removed = before - sectionItemArrays[sIdx].count
-            numberOfItems -= removed
-            remaining -= removed
-            if remaining == 0 { break }
+
+        if let map = _itemToSection {
+            // Fast path: reverse map is available — only touch affected sections.
+            var affectedSections = Set<Int>()
+            for item in toDelete {
+                if let section = map[item], let sIdx = sectionIndex[section] {
+                    affectedSections.insert(sIdx)
+                }
+                _itemToSection!.removeValue(forKey: item)
+            }
+            for sIdx in affectedSections {
+                let before = sectionItemArrays[sIdx].count
+                sectionItemArrays[sIdx].removeAll { toDelete.contains($0) }
+                numberOfItems -= before - sectionItemArrays[sIdx].count
+            }
+        } else {
+            // No reverse map — linear scan with early exit.
+            var remaining = toDelete.count
+            for sIdx in sectionItemArrays.indices {
+                let before = sectionItemArrays[sIdx].count
+                sectionItemArrays[sIdx].removeAll { toDelete.contains($0) }
+                let removed = before - sectionItemArrays[sIdx].count
+                numberOfItems -= removed
+                remaining -= removed
+                if remaining == 0 { break }
+            }
         }
-        // Invalidate reverse map — it will rebuild lazily from the new state if needed.
-        _itemToSection = nil
     }
 
     public mutating func deleteAllItems() {
@@ -253,6 +268,10 @@ public struct DiffableDataSourceSnapshot<SectionIdentifierType: Hashable & Senda
     }
 
     // MARK: - Queries
+
+    public var isEmpty: Bool {
+        numberOfItems == 0 && sectionIdentifiers.isEmpty
+    }
 
     public var numberOfSections: Int {
         sectionIdentifiers.count
