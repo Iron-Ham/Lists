@@ -43,7 +43,7 @@ help:
 	@echo ""
 	@echo "  $(BOLD)◆ Code Quality$(RESET)"
 	@echo "  $(DIM)──────────────────────────────────────────────────────────────$(RESET)"
-	@printf "    $(CYAN)%-24s$(RESET) %s\n" "lint" "Run SwiftLint on Sources/ and Tests/"
+	@printf "    $(CYAN)%-24s$(RESET) %s\n" "lint" "Lint Sources/, Tests/, and Example/ with SwiftFormat"
 	@printf "    $(CYAN)%-24s$(RESET) %s\n" "format" "Format code with SwiftFormat"
 	@printf "    $(CYAN)%-24s$(RESET) %s\n" "install-hooks" "Install git pre-commit hook"
 	@echo ""
@@ -171,7 +171,7 @@ benchmark:
 # =============================================================================
 
 lint:
-	swiftlint lint --strict Sources/ Tests/
+	swiftformat --lint Sources/ Tests/ Example/
 
 format:
 	swiftformat Sources/ Tests/ Example/
