@@ -42,12 +42,14 @@ public struct AnyItem: Hashable, Sendable {
     }
 }
 
-/// Lazily creates and caches `UICollectionView.CellRegistration` instances for each `CellViewModel` type.
+/// Lazily registers cell classes and dequeues cells for each `CellViewModel` type.
 ///
-/// After the first cell of each type is dequeued, subsequent lookups are a single dictionary access.
+/// Uses traditional `register`/`dequeueReusableCell` instead of `CellRegistration`
+/// because `CellRegistration` cannot be created inside a cell provider callback.
+/// After the first cell of each type is registered, subsequent lookups are a set membership check.
 @MainActor
 final class DynamicCellRegistrar {
-    private var registrations: [ObjectIdentifier: Any] = [:]
+    private var registeredTypes: Set<ObjectIdentifier> = []
 
     init() {}
 
@@ -56,16 +58,18 @@ final class DynamicCellRegistrar {
         at indexPath: IndexPath,
         item: T
     ) -> UICollectionViewCell {
-        let key = ObjectIdentifier(T.self)
-        let registration: UICollectionView.CellRegistration<T.Cell, T>
-        if let existing = registrations[key] as? UICollectionView.CellRegistration<T.Cell, T> {
-            registration = existing
-        } else {
-            registration = UICollectionView.CellRegistration { cell, _, item in
-                item.configure(cell)
-            }
-            registrations[key] = registration
+        let key = ObjectIdentifier(T.Cell.self)
+        if !registeredTypes.contains(key) {
+            collectionView.register(T.Cell.self, forCellWithReuseIdentifier: String(reflecting: T.Cell.self))
+            registeredTypes.insert(key)
         }
-        return collectionView.dequeueConfiguredReusableCell(using: registration, for: indexPath, item: item)
+        let cell = collectionView.dequeueReusableCell(
+            withReuseIdentifier: String(reflecting: T.Cell.self),
+            for: indexPath
+        )
+        if let typedCell = cell as? T.Cell {
+            item.configure(typedCell)
+        }
+        return cell
     }
 }
