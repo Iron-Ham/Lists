@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# ── Staleness check ──────────────────────────────────────────────────
+# Detect if the canonical script in scripts/ has changed since install.
+REPO_ROOT=$(git rev-parse --show-toplevel)
+SOURCE="$REPO_ROOT/scripts/pre-commit"
+INSTALLED="$REPO_ROOT/.git/hooks/pre-commit"
+
+if [ -f "$SOURCE" ] && [ -f "$INSTALLED" ]; then
+    if ! diff -q "$SOURCE" "$INSTALLED" &>/dev/null; then
+        echo "⚠ pre-commit hook is out of date."
+        echo "  Run 'make install-hooks' to update."
+        echo ""
+    fi
+fi
+
+# ── Auto-format staged Swift files ───────────────────────────────────
+staged_files=$(git diff --cached --name-only --diff-filter=d -- '*.swift')
+
+if [ -z "$staged_files" ]; then
+    exit 0
+fi
+
+if command -v swiftformat &>/dev/null; then
+    echo "Formatting staged Swift files..."
+    echo "$staged_files" | xargs swiftformat
+
+    # Re-stage the formatted files
+    echo "$staged_files" | xargs git add
+else
+    echo "error: swiftformat not installed — install with 'brew install swiftformat'"
+    exit 1
+fi
+
+# ── Verify formatting is clean ───────────────────────────────────────
+# Run swiftformat in lint mode on the staged files. If formatting couldn't
+# fully resolve an issue above, this catches it and blocks the commit.
+echo "Verifying lint..."
+lint_output=$(echo "$staged_files" | xargs swiftformat --lint 2>&1) || {
+    echo "$lint_output" | sed 's/^/  /'
+    echo ""
+    echo "Lint failed. Run 'make format' to fix, then re-stage."
+    exit 1
+}
+
+echo "Lint passed."

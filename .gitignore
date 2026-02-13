@@ -1,0 +1,20 @@
+# Xcode
+xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+DerivedData/
+
+# SwiftPM
+.build/
+.swiftpm/
+Package.resolved
+
+# Tuist
+Derived/
+
+# macOS
+.DS_Store
+
+# IDE
+*.xcworkspace
+*.xcodeproj
