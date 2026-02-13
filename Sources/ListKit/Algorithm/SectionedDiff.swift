@@ -78,7 +78,20 @@ enum SectionedDiff {
         // Remaining insert candidates are real inserts
         itemInserts.append(contentsOf: crossInsertCandidates.values)
 
-        // 4. Collect reloads and reconfigures from the new snapshot
+        // 4. Collect section reloads — only for sections that survive (exist in both old and new).
+        //    Uses NEW indices since reloads are applied after the batch update.
+        var sectionReloads = IndexSet()
+        if !new.reloadedSectionIdentifiers.isEmpty {
+            for sectionID in new.reloadedSectionIdentifiers {
+                if let newIdx = new.index(ofSection: sectionID),
+                   old.index(ofSection: sectionID) != nil
+                {
+                    sectionReloads.insert(newIdx)
+                }
+            }
+        }
+
+        // 5. Collect item reloads and reconfigures from the new snapshot
         var itemReloads: [IndexPath] = []
         var itemReconfigures: [IndexPath] = []
 
@@ -98,7 +111,7 @@ enum SectionedDiff {
             }
         }
 
-        // 5. Sort for deterministic batch update ordering
+        // 6. Sort for deterministic batch update ordering
         // Deletes descending (process from end to start), inserts ascending
         let sortedItemDeletes = itemDeletes.sorted { ($0.section, $0.item) > ($1.section, $1.item) }
         let sortedItemInserts = itemInserts.sorted { ($0.section, $0.item) < ($1.section, $1.item) }
@@ -107,6 +120,7 @@ enum SectionedDiff {
             sectionDeletes: sectionDeletes,
             sectionInserts: sectionInserts,
             sectionMoves: sectionMoves,
+            sectionReloads: sectionReloads,
             itemDeletes: sortedItemDeletes,
             itemInserts: sortedItemInserts,
             itemMoves: itemMoves,

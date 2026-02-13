@@ -4,6 +4,7 @@ struct StagedChangeset<SectionID: Hashable, ItemID: Hashable>: Sendable {
     let sectionDeletes: IndexSet
     let sectionInserts: IndexSet
     let sectionMoves: [(from: Int, to: Int)]
+    let sectionReloads: IndexSet
     let itemDeletes: [IndexPath]
     let itemInserts: [IndexPath]
     let itemMoves: [(from: IndexPath, to: IndexPath)]
@@ -14,6 +15,7 @@ struct StagedChangeset<SectionID: Hashable, ItemID: Hashable>: Sendable {
         sectionDeletes.isEmpty
             && sectionInserts.isEmpty
             && sectionMoves.isEmpty
+            && sectionReloads.isEmpty
             && itemDeletes.isEmpty
             && itemInserts.isEmpty
             && itemMoves.isEmpty
