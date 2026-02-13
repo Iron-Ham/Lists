@@ -237,10 +237,10 @@ if let product = anyItem.as(ProductItem.self) { showDetail(product) }
 | Operation | Concrete | AnyItem | Overhead |
 |:---|---:|---:|---:|
 | Wrap 10k items | — | 0.5 ms | — |
-| Build 10k snapshot | 0.002 ms | 0.08 ms | ~40x |
-| DSL build 100 sections x 100 | 0.4 ms | 1.4 ms | ~3x |
-| Diff 10k (50% overlap) | 12.0 ms | 17.1 ms | ~1.4x |
-| Diff 10k (cross-type replace) | — | 28.6 ms | — |
+| Build 10k snapshot | 0.001 ms | 0.08 ms | ~53x |
+| DSL build 100 sections x 100 | 0.4 ms | 1.4 ms | ~3.3x |
+| Diff 10k (50% overlap) | 4.5 ms | 6.5 ms | ~1.5x |
+| Diff 10k (cross-type replace) | — | 7.5 ms | — |
 
 Snapshot construction overhead is measurable but sub-millisecond at typical scales. The critical path — diffing — adds only ~40% overhead, and both absolute times remain well within a single frame budget (16ms @ 60fps for typical list sizes).
 
@@ -260,13 +260,13 @@ All benchmarks run in **Release configuration** with median-of-15 and 5 warmup i
 
 | Operation | ListKit | Apple | Speedup |
 |:---|---:|---:|---:|
-| Build 10k items | 0.002 ms | 1.286 ms | **857.6x** |
-| Build 50k items | 0.006 ms | 6.324 ms | **1,054.0x** |
-| Build 100 sections x 100 | 0.057 ms | 4.227 ms | **74.8x** |
-| Delete 5k from 10k | 1.184 ms | 2.462 ms | **2.1x** |
-| Delete 25/50 sections | 0.043 ms | 1.934 ms | **44.8x** |
-| Reload 5k items | 0.100 ms | 1.632 ms | **16.3x** |
-| Query itemIdentifiers 100x | 0.054 ms | 48.326 ms | **886.7x** |
+| Build 10k items | 0.002 ms | 1.223 ms | **752.7x** |
+| Build 50k items | 0.006 ms | 6.010 ms | **1,045.3x** |
+| Build 100 sections x 100 | 0.060 ms | 3.983 ms | **66.4x** |
+| Delete 5k from 10k | 1.206 ms | 2.448 ms | **2.0x** |
+| Delete 25/50 sections | 0.180 ms | 1.852 ms | **10.3x** |
+| Reload 5k items | 0.099 ms | 1.547 ms | **15.7x** |
+| Query itemIdentifiers 100x | 0.051 ms | 46.364 ms | **908.3x** |
 
 ListKit snapshots are pure Swift value types with flat array storage and a lazy reverse index. Apple's `NSDiffableDataSourceSnapshot` is backed by Objective-C runtime overhead and per-query hashing.
 
@@ -276,12 +276,12 @@ Both libraries implement Paul Heckel's O(n) diff. IGListKit's is Objective-C++; 
 
 | Operation | IGListKit | ListKit | Notes |
 |:---|---:|---:|:---|
-| Diff 10k (50% overlap) | 12.6 ms | 11.8 ms | ListKit wins at common scale |
-| Diff 50k (50% overlap) | 55.7 ms | 67.7 ms | IGListKit's flat C++ pass is faster at scale |
-| Diff no-change 10k | 9.4 ms | 0.08 ms | **116x** — per-section skip makes this free |
-| Diff shuffle 10k | 10.3 ms | 3.3 ms | **3.1x** ListKit wins all-moves case |
+| Diff 10k (50% overlap) | 10.8 ms | 3.9 ms | **2.8x** — ListKit wins at common scale |
+| Diff 50k (50% overlap) | 55.4 ms | 19.6 ms | **2.8x** — ListKit wins at scale too |
+| Diff no-change 10k | 9.5 ms | 0.09 ms | **106x** — per-section skip makes this free |
+| Diff shuffle 10k | 9.8 ms | 3.2 ms | **3.1x** — ListKit wins all-moves case |
 
-Per-section diffing skips unchanged sections entirely — the common case for incremental UI updates. At 50k with 50% overlap, IGListKit's single-pass Obj-C++ is faster, but ListKit provides sectioned structure, `Sendable` safety, and full `UICollectionViewDiffableDataSource` compatibility that IGListKit doesn't.
+Per-section diffing skips unchanged sections entirely — the common case for incremental UI updates. `ContiguousArray` storage and `reserveCapacity` for diff internals give ListKit a consistent edge even at 50k scale, while providing sectioned structure, `Sendable` safety, and full `UICollectionViewDiffableDataSource` compatibility that IGListKit doesn't.
 
 ### vs ReactiveCollectionsKit
 
@@ -289,11 +289,11 @@ ReactiveCollectionsKit wraps Apple's `NSDiffableDataSourceSnapshot` with type-er
 
 | Operation | ListKit | ReactiveCollectionsKit | Apple | Speedup vs RC |
 |:---|---:|---:|---:|---:|
-| Build 10k items | 0.006 ms | 7.9 ms | 1.3 ms | **1,311x** |
-| Build 50k items | 0.033 ms | 36.7 ms | — | **1,113x** |
-| Build 100 sections x 100 | 0.058 ms | 7.8 ms | 4.7 ms | **134x** |
+| Build 10k items | 0.004 ms | 7.5 ms | 1.3 ms | **1,871x** |
+| Build 50k items | 0.014 ms | 37.4 ms | — | **2,671x** |
+| Build 100 sections x 100 | 0.058 ms | 7.3 ms | 4.2 ms | **126x** |
 
-Type erasure alone (`eraseToAnyViewModel()`) costs 7.3 ms for 10k cells — more than ListKit's entire snapshot build at the same scale.
+Type erasure alone (`eraseToAnyViewModel()`) costs 7.1 ms for 10k cells — more than ListKit's entire snapshot build at the same scale.
 
 Run benchmarks with:
 

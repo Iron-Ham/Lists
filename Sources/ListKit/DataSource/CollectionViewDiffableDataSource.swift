@@ -38,10 +38,40 @@ public final class CollectionViewDiffableDataSource<
 
     // MARK: - Apply Methods
 
-    /// Primary apply — async with animated differences
+    /// Primary apply — async with animated differences.
+    /// Serialized: concurrent calls are queued and executed in order.
     public func apply(
         _ snapshot: DiffableDataSourceSnapshot<SectionIdentifierType, ItemIdentifierType>,
         animatingDifferences: Bool = true
+    ) async {
+        let previousTask = applyTask
+        let task = Task { @MainActor in
+            _ = await previousTask?.value
+            await self.performApply(snapshot, animatingDifferences: animatingDifferences)
+        }
+        applyTask = task
+        await task.value
+    }
+
+    /// Convenience — completion handler variant.
+    /// Serialized: concurrent calls are queued and executed in order.
+    public func apply(
+        _ snapshot: DiffableDataSourceSnapshot<SectionIdentifierType, ItemIdentifierType>,
+        animatingDifferences: Bool = true,
+        completion: (() -> Void)? = nil
+    ) {
+        let previousTask = applyTask
+        applyTask = Task { @MainActor in
+            _ = await previousTask?.value
+            await self.performApply(snapshot, animatingDifferences: animatingDifferences)
+            completion?()
+        }
+    }
+
+    /// Core apply logic — called only from serialized public methods.
+    private func performApply(
+        _ snapshot: DiffableDataSourceSnapshot<SectionIdentifierType, ItemIdentifierType>,
+        animatingDifferences: Bool
     ) async {
         guard let collectionView else { return }
 
@@ -120,22 +150,6 @@ public final class CollectionViewDiffableDataSource<
                 }
                 continuation.resume()
             }
-        }
-    }
-
-    /// Convenience — completion handler variant. Applies are serialized to prevent
-    /// concurrent calls from racing on `currentSnapshot`.
-    public func apply(
-        _ snapshot: DiffableDataSourceSnapshot<SectionIdentifierType, ItemIdentifierType>,
-        animatingDifferences: Bool = true,
-        completion: (() -> Void)? = nil
-    ) {
-        let previousTask = applyTask
-        applyTask = Task { @MainActor in
-            // Wait for any in-flight apply to finish before starting ours
-            _ = await previousTask?.value
-            await apply(snapshot, animatingDifferences: animatingDifferences)
-            completion?()
         }
     }
 

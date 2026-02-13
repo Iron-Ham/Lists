@@ -24,6 +24,10 @@ enum SectionedDiff {
         var itemInserts: [IndexPath] = []
         var itemMoves: [(from: IndexPath, to: IndexPath)] = []
 
+        // Cross-section moves are only possible when multiple sections exist.
+        // Single-section snapshots skip dictionary allocation entirely.
+        let crossSectionPossible = old.numberOfSections > 1 || new.numberOfSections > 1
+
         // Items that HeckelDiff reports as deleted/inserted within surviving sections.
         // An item deleted from section A and inserted into section B = cross-section move.
         var crossDeleteCandidates: [ItemID: IndexPath] = [:]
@@ -53,30 +57,42 @@ enum SectionedDiff {
                 ))
             }
 
-            // Per-section deletes: real deletes or cross-section move sources
-            for deleteIdx in itemDiff.deletes {
-                let itemID = oldItems[deleteIdx]
-                crossDeleteCandidates[itemID] = IndexPath(item: deleteIdx, section: oldSectionIdx)
-            }
+            if crossSectionPossible {
+                // Per-section deletes: real deletes or cross-section move sources
+                for deleteIdx in itemDiff.deletes {
+                    let itemID = oldItems[deleteIdx]
+                    crossDeleteCandidates[itemID] = IndexPath(item: deleteIdx, section: oldSectionIdx)
+                }
 
-            // Per-section inserts: real inserts or cross-section move destinations
-            for insertIdx in itemDiff.inserts {
-                let itemID = newItems[insertIdx]
-                crossInsertCandidates[itemID] = IndexPath(item: insertIdx, section: newSectionIdx)
+                // Per-section inserts: real inserts or cross-section move destinations
+                for insertIdx in itemDiff.inserts {
+                    let itemID = newItems[insertIdx]
+                    crossInsertCandidates[itemID] = IndexPath(item: insertIdx, section: newSectionIdx)
+                }
+            } else {
+                // Single section — deletes and inserts are final, no cross-section reconciliation needed
+                for deleteIdx in itemDiff.deletes {
+                    itemDeletes.append(IndexPath(item: deleteIdx, section: oldSectionIdx))
+                }
+                for insertIdx in itemDiff.inserts {
+                    itemInserts.append(IndexPath(item: insertIdx, section: newSectionIdx))
+                }
             }
         }
 
         // 3. Reconcile cross-section moves between surviving sections.
         //    Items deleted from one section and inserted into another → cross-section move.
-        for (itemID, fromPath) in crossDeleteCandidates {
-            if let toPath = crossInsertCandidates.removeValue(forKey: itemID) {
-                itemMoves.append((from: fromPath, to: toPath))
-            } else {
-                itemDeletes.append(fromPath)
+        if crossSectionPossible {
+            for (itemID, fromPath) in crossDeleteCandidates {
+                if let toPath = crossInsertCandidates.removeValue(forKey: itemID) {
+                    itemMoves.append((from: fromPath, to: toPath))
+                } else {
+                    itemDeletes.append(fromPath)
+                }
             }
+            // Remaining insert candidates are real inserts
+            itemInserts.append(contentsOf: crossInsertCandidates.values)
         }
-        // Remaining insert candidates are real inserts
-        itemInserts.append(contentsOf: crossInsertCandidates.values)
 
         // 4. Collect section reloads — only for sections that survive (exist in both old and new).
         //    Uses NEW indices since reloads are applied after the batch update.
