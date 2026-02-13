@@ -56,12 +56,12 @@ enum HeckelDiff {
             return DiffResult(deletes: [], inserts: [], moves: [], matched: [])
         }
 
-        var entries: [SymbolEntry] = []
+        var entries = ContiguousArray<SymbolEntry>()
         entries.reserveCapacity(old.count + new.count)
         var symbolTable: [T: Int] = [:]
         symbolTable.reserveCapacity(old.count + new.count)
-        var NA: [ArrayEntry] = []
-        var OA: [ArrayEntry] = []
+        var NA = ContiguousArray<ArrayEntry>()
+        var OA = ContiguousArray<ArrayEntry>()
 
         // Pass 1: Scan new array
         NA.reserveCapacity(new.count)
@@ -147,6 +147,7 @@ enum HeckelDiff {
         var inserts: [Int] = []
         inserts.reserveCapacity(new.count)
         var moves: [(from: Int, to: Int)] = []
+        moves.reserveCapacity(min(old.count, new.count))
         var matched: [(old: Int, new: Int)] = []
         matched.reserveCapacity(min(old.count, new.count))
 

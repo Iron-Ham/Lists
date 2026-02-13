@@ -78,16 +78,17 @@ public struct DiffableDataSourceSnapshot<SectionIdentifierType: Hashable & Senda
         let toDelete = Set(identifiers)
         var indicesToRemove: [Int] = []
         indicesToRemove.reserveCapacity(toDelete.count)
+        reloadedSectionIdentifiers.subtract(toDelete)
         // Deduplicate via the Set to avoid double-counting numberOfItems
         for identifier in toDelete {
             guard let idx = sectionIndex[identifier] else { continue }
             indicesToRemove.append(idx)
             let items = sectionItemArrays[idx]
             numberOfItems -= items.count
-            if _itemToSection != nil {
-                for item in items {
-                    _itemToSection!.removeValue(forKey: item)
-                }
+            for item in items {
+                _itemToSection?.removeValue(forKey: item)
+                reloadedItemIdentifiers.remove(item)
+                reconfiguredItemIdentifiers.remove(item)
             }
         }
         sectionIdentifiers.removeAll { toDelete.contains($0) }
@@ -190,6 +191,8 @@ public struct DiffableDataSourceSnapshot<SectionIdentifierType: Hashable & Senda
 
     public mutating func deleteItems(_ identifiers: [ItemIdentifierType]) {
         let toDelete = Set(identifiers)
+        reloadedItemIdentifiers.subtract(toDelete)
+        reconfiguredItemIdentifiers.subtract(toDelete)
 
         if let map = _itemToSection {
             // Fast path: reverse map is available — only touch affected sections.
@@ -225,6 +228,8 @@ public struct DiffableDataSourceSnapshot<SectionIdentifierType: Hashable & Senda
         }
         _itemToSection = nil
         numberOfItems = 0
+        reloadedItemIdentifiers.removeAll()
+        reconfiguredItemIdentifiers.removeAll()
     }
 
     public mutating func moveItem(_ identifier: ItemIdentifierType, beforeItem toIdentifier: ItemIdentifierType) {
