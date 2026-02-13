@@ -147,6 +147,93 @@ struct SectionedDiffTests {
         #expect(changeset.itemReconfigures.contains(IndexPath(item: 1, section: 0)))
     }
 
+    @Test func sectionReloads() {
+        var old = DiffableDataSourceSnapshot<String, Int>()
+        old.appendSections(["A", "B"])
+        old.appendItems([1, 2], toSection: "A")
+        old.appendItems([3, 4], toSection: "B")
+
+        var new = DiffableDataSourceSnapshot<String, Int>()
+        new.appendSections(["A", "B"])
+        new.appendItems([1, 2], toSection: "A")
+        new.appendItems([3, 4], toSection: "B")
+        new.reloadSections(["B"])
+
+        let changeset = SectionedDiff.diff(old: old, new: new)
+        #expect(changeset.sectionReloads == IndexSet([1]))
+        // No structural changes — only the section reload
+        #expect(changeset.sectionDeletes.isEmpty)
+        #expect(changeset.sectionInserts.isEmpty)
+        #expect(changeset.itemDeletes.isEmpty)
+        #expect(changeset.itemInserts.isEmpty)
+    }
+
+    @Test func sectionReloadIgnoredForDeletedSection() {
+        var old = DiffableDataSourceSnapshot<String, Int>()
+        old.appendSections(["A", "B"])
+        old.appendItems([1], toSection: "A")
+        old.appendItems([2], toSection: "B")
+
+        // Section A is removed from new, but also marked for reload
+        var new = DiffableDataSourceSnapshot<String, Int>()
+        new.appendSections(["B"])
+        new.appendItems([2], toSection: "B")
+        new.reloadSections(["A"])
+
+        let changeset = SectionedDiff.diff(old: old, new: new)
+        // Section A was deleted — reload should be ignored
+        #expect(changeset.sectionReloads.isEmpty)
+        #expect(changeset.sectionDeletes == IndexSet([0]))
+    }
+
+    @Test func sectionReloadIgnoredForInsertedSection() {
+        let old = DiffableDataSourceSnapshot<String, Int>()
+
+        // Section A is new (not in old) but marked for reload
+        var new = DiffableDataSourceSnapshot<String, Int>()
+        new.appendSections(["A"])
+        new.appendItems([1], toSection: "A")
+        new.reloadSections(["A"])
+
+        let changeset = SectionedDiff.diff(old: old, new: new)
+        // Section A is inserted — reload should be ignored since it's new
+        #expect(changeset.sectionReloads.isEmpty)
+        #expect(changeset.sectionInserts == IndexSet([0]))
+    }
+
+    @Test func sectionReloadUsesNewIndex() {
+        // Section B moves from index 1 to index 0 and is reloaded
+        var old = DiffableDataSourceSnapshot<String, Int>()
+        old.appendSections(["A", "B"])
+        old.appendItems([1], toSection: "A")
+        old.appendItems([2], toSection: "B")
+
+        var new = DiffableDataSourceSnapshot<String, Int>()
+        new.appendSections(["B", "A"])
+        new.appendItems([2], toSection: "B")
+        new.appendItems([1], toSection: "A")
+        new.reloadSections(["B"])
+
+        let changeset = SectionedDiff.diff(old: old, new: new)
+        // Should use B's NEW index (0), not its old index (1)
+        #expect(changeset.sectionReloads == IndexSet([0]))
+    }
+
+    @Test func sectionReloadMakesChangesetNonEmpty() {
+        var old = DiffableDataSourceSnapshot<String, Int>()
+        old.appendSections(["A"])
+        old.appendItems([1], toSection: "A")
+
+        var new = DiffableDataSourceSnapshot<String, Int>()
+        new.appendSections(["A"])
+        new.appendItems([1], toSection: "A")
+        new.reloadSections(["A"])
+
+        let changeset = SectionedDiff.diff(old: old, new: new)
+        #expect(!changeset.isEmpty)
+        #expect(changeset.sectionReloads == IndexSet([0]))
+    }
+
     // MARK: - Edge Cases
 
     @Test func bothEmpty() {
@@ -192,6 +279,7 @@ struct SectionedDiffTests {
         #expect(changeset.sectionDeletes.isEmpty)
         #expect(changeset.sectionInserts.isEmpty)
         #expect(changeset.sectionMoves.isEmpty)
+        #expect(changeset.sectionReloads.isEmpty)
         #expect(changeset.itemDeletes.isEmpty)
         #expect(changeset.itemInserts.isEmpty)
         #expect(changeset.itemMoves.isEmpty)

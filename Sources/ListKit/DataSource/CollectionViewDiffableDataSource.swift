@@ -94,6 +94,9 @@ public final class CollectionViewDiffableDataSource<
                     continuation.resume()
                     return
                 }
+                if !changeset.sectionReloads.isEmpty {
+                    collectionView.reloadSections(changeset.sectionReloads)
+                }
                 if !changeset.itemReloads.isEmpty {
                     collectionView.reloadItems(at: changeset.itemReloads)
                 }
