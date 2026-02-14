@@ -1,11 +1,11 @@
 {
   "identifier": {
     "interfaceLanguage": "swift",
-    "url": "doc://ListKit/documentation"
+    "url": "doc://com.listkit.Lists/documentation"
   },
   "topicSectionsStyle": "detailedGrid",
   "references": {
-    "doc://ListKit/documentation/ListKit": {
+    "doc://com.listkit.ListKit/documentation/ListKit": {
       "role": "collection",
       "title": "ListKit",
       "abstract": [
@@ -16,10 +16,10 @@
       ],
       "type": "topic",
       "url": "/documentation/listkit",
-      "identifier": "doc://ListKit/documentation/ListKit",
+      "identifier": "doc://com.listkit.ListKit/documentation/ListKit",
       "kind": "symbol"
     },
-    "doc://Lists/documentation/Lists": {
+    "doc://com.listkit.Lists/documentation/Lists": {
       "role": "collection",
       "title": "Lists",
       "abstract": [
@@ -30,10 +30,10 @@
       ],
       "type": "topic",
       "url": "/documentation/lists",
-      "identifier": "doc://Lists/documentation/Lists",
+      "identifier": "doc://com.listkit.Lists/documentation/Lists",
       "kind": "symbol"
     },
-    "doc://Lists/documentation/Lists/QuickStart": {
+    "doc://com.listkit.Lists/documentation/Lists/QuickStart": {
       "role": "article",
       "title": "Getting Started with Lists",
       "abstract": [
@@ -44,10 +44,10 @@
       ],
       "type": "topic",
       "url": "/documentation/lists/quickstart",
-      "identifier": "doc://Lists/documentation/Lists/QuickStart",
+      "identifier": "doc://com.listkit.Lists/documentation/Lists/QuickStart",
       "kind": "article"
     },
-    "doc://ListKit/documentation/ListKit/UsingListKit": {
+    "doc://com.listkit.ListKit/documentation/ListKit/UsingListKit": {
       "role": "article",
       "title": "Using ListKit Directly",
       "abstract": [
@@ -58,10 +58,10 @@
       ],
       "type": "topic",
       "url": "/documentation/listkit/usinglistkit",
-      "identifier": "doc://ListKit/documentation/ListKit/UsingListKit",
+      "identifier": "doc://com.listkit.ListKit/documentation/ListKit/UsingListKit",
       "kind": "article"
     },
-    "doc://Lists/documentation/Lists/UIKitTutorial": {
+    "doc://com.listkit.Lists/documentation/Lists/UIKitTutorial": {
       "role": "article",
       "title": "Building Lists in UIKit",
       "abstract": [
@@ -72,10 +72,10 @@
       ],
       "type": "topic",
       "url": "/documentation/lists/uikittutorial",
-      "identifier": "doc://Lists/documentation/Lists/UIKitTutorial",
+      "identifier": "doc://com.listkit.Lists/documentation/Lists/UIKitTutorial",
       "kind": "article"
     },
-    "doc://Lists/documentation/Lists/SwiftUITutorial": {
+    "doc://com.listkit.Lists/documentation/Lists/SwiftUITutorial": {
       "role": "article",
       "title": "Building Lists in SwiftUI",
       "abstract": [
@@ -86,7 +86,7 @@
       ],
       "type": "topic",
       "url": "/documentation/lists/swiftuitutorial",
-      "identifier": "doc://Lists/documentation/Lists/SwiftUITutorial",
+      "identifier": "doc://com.listkit.Lists/documentation/Lists/SwiftUITutorial",
       "kind": "article"
     }
   },
@@ -95,18 +95,18 @@
       "anchor": "Modules",
       "title": "Modules",
       "identifiers": [
-        "doc://ListKit/documentation/ListKit",
-        "doc://Lists/documentation/Lists"
+        "doc://com.listkit.ListKit/documentation/ListKit",
+        "doc://com.listkit.Lists/documentation/Lists"
       ]
     },
     {
       "anchor": "Tutorials",
       "title": "Tutorials",
       "identifiers": [
-        "doc://Lists/documentation/Lists/QuickStart",
-        "doc://Lists/documentation/Lists/UIKitTutorial",
-        "doc://Lists/documentation/Lists/SwiftUITutorial",
-        "doc://ListKit/documentation/ListKit/UsingListKit"
+        "doc://com.listkit.Lists/documentation/Lists/QuickStart",
+        "doc://com.listkit.Lists/documentation/Lists/UIKitTutorial",
+        "doc://com.listkit.Lists/documentation/Lists/SwiftUITutorial",
+        "doc://com.listkit.ListKit/documentation/ListKit/UsingListKit"
       ]
     }
   ],
