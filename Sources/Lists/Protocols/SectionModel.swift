@@ -1,4 +1,4 @@
-public struct SectionModel<SectionID: Hashable & Sendable, Item: CellViewModel>: Sendable {
+public struct SectionModel<SectionID: Hashable & Sendable, Item: CellViewModel>: Sendable, Equatable {
     public let id: SectionID
     public let items: [Item]
     public let header: String?
