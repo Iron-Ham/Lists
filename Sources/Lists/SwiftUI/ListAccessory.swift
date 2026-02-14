@@ -9,55 +9,59 @@ import UIKit
 ///   `UICellAccessory`, which is not `Sendable`. All `ListAccessory` values must be
 ///   created and accessed on `@MainActor`.
 public enum ListAccessory: @unchecked Sendable, Hashable {
-    case disclosureIndicator
-    case checkmark
-    case delete
-    case reorder
-    case outlineDisclosure
-    case detail
+  case disclosureIndicator
+  case checkmark
+  case delete
+  case reorder
+  case outlineDisclosure
+  case detail
 
-    /// Escape hatch for parameterized accessories (e.g., `UICellAccessory.detail(actionHandler:)`).
-    /// The `key` is used for equality — two `.custom` values are equal when their keys match.
-    case custom(UICellAccessory, key: AnyHashable)
+  /// Escape hatch for parameterized accessories (e.g., `UICellAccessory.detail(actionHandler:)`).
+  /// The `key` is used for equality — two `.custom` values are equal when their keys match.
+  case custom(UICellAccessory, key: AnyHashable)
 
-    public static func == (lhs: ListAccessory, rhs: ListAccessory) -> Bool {
-        switch (lhs, rhs) {
-        case (.disclosureIndicator, .disclosureIndicator),
-             (.checkmark, .checkmark),
-             (.delete, .delete),
-             (.reorder, .reorder),
-             (.outlineDisclosure, .outlineDisclosure),
-             (.detail, .detail):
-            true
-        case let (.custom(_, lhsKey), .custom(_, rhsKey)):
-            lhsKey == rhsKey
-        default:
-            false
-        }
+  // MARK: Public
+
+  /// Converts to the UIKit `UICellAccessory` equivalent.
+  public var uiAccessory: UICellAccessory {
+    switch self {
+    case .disclosureIndicator: .disclosureIndicator()
+    case .checkmark: .checkmark()
+    case .delete: .delete()
+    case .reorder: .reorder()
+    case .outlineDisclosure: .outlineDisclosure()
+    case .detail: .detail()
+    case .custom(let accessory, _): accessory
     }
+  }
 
-    public func hash(into hasher: inout Hasher) {
-        switch self {
-        case .disclosureIndicator: hasher.combine(0)
-        case .checkmark: hasher.combine(1)
-        case .delete: hasher.combine(2)
-        case .reorder: hasher.combine(3)
-        case .outlineDisclosure: hasher.combine(4)
-        case .detail: hasher.combine(5)
-        case let .custom(_, key): hasher.combine(6); hasher.combine(key)
-        }
+  public static func ==(lhs: ListAccessory, rhs: ListAccessory) -> Bool {
+    switch (lhs, rhs) {
+    case (.disclosureIndicator, .disclosureIndicator),
+         (.checkmark, .checkmark),
+         (.delete, .delete),
+         (.reorder, .reorder),
+         (.outlineDisclosure, .outlineDisclosure),
+         (.detail, .detail):
+      true
+    case (.custom(_, let lhsKey), .custom(_, let rhsKey)):
+      lhsKey == rhsKey
+    default:
+      false
     }
+  }
 
-    /// Converts to the UIKit `UICellAccessory` equivalent.
-    public var uiAccessory: UICellAccessory {
-        switch self {
-        case .disclosureIndicator: .disclosureIndicator()
-        case .checkmark: .checkmark()
-        case .delete: .delete()
-        case .reorder: .reorder()
-        case .outlineDisclosure: .outlineDisclosure()
-        case .detail: .detail()
-        case let .custom(accessory, _): accessory
-        }
+  public func hash(into hasher: inout Hasher) {
+    switch self {
+    case .disclosureIndicator: hasher.combine(0)
+    case .checkmark: hasher.combine(1)
+    case .delete: hasher.combine(2)
+    case .reorder: hasher.combine(3)
+    case .outlineDisclosure: hasher.combine(4)
+    case .detail: hasher.combine(5)
+    case .custom(_, let key): hasher.combine(6)
+      hasher.combine(key)
     }
+  }
+
 }

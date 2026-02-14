@@ -8,27 +8,27 @@ import UIKit
 /// data source, but the data source isn't available until after `super.init()`.
 @MainActor
 final class SwipeActionBridge<SectionID: Hashable & Sendable, Item: CellViewModel> {
-    var dataSource: ListDataSource<SectionID, Item>?
-    var trailingProvider: (@MainActor (Item) -> UISwipeActionsConfiguration?)?
-    var leadingProvider: (@MainActor (Item) -> UISwipeActionsConfiguration?)?
+  var dataSource: ListDataSource<SectionID, Item>?
+  var trailingProvider: (@MainActor (Item) -> UISwipeActionsConfiguration?)?
+  var leadingProvider: (@MainActor (Item) -> UISwipeActionsConfiguration?)?
 
-    func resolveTrailing(at indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-        guard let item = dataSource?.itemIdentifier(for: indexPath) else { return nil }
-        return trailingProvider?(item)
-    }
+  func resolveTrailing(at indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+    guard let item = dataSource?.itemIdentifier(for: indexPath) else { return nil }
+    return trailingProvider?(item)
+  }
 
-    func resolveLeading(at indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-        guard let item = dataSource?.itemIdentifier(for: indexPath) else { return nil }
-        return leadingProvider?(item)
-    }
+  func resolveLeading(at indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+    guard let item = dataSource?.itemIdentifier(for: indexPath) else { return nil }
+    return leadingProvider?(item)
+  }
 
-    /// Configures both swipe action providers on a list layout configuration.
-    func configureSwipeActions(on config: inout UICollectionLayoutListConfiguration) {
-        config.trailingSwipeActionsConfigurationProvider = { [weak self] indexPath in
-            self?.resolveTrailing(at: indexPath)
-        }
-        config.leadingSwipeActionsConfigurationProvider = { [weak self] indexPath in
-            self?.resolveLeading(at: indexPath)
-        }
+  /// Configures both swipe action providers on a list layout configuration.
+  func configureSwipeActions(on config: inout UICollectionLayoutListConfiguration) {
+    config.trailingSwipeActionsConfigurationProvider = { [weak self] indexPath in
+      self?.resolveTrailing(at: indexPath)
     }
+    config.leadingSwipeActionsConfigurationProvider = { [weak self] indexPath in
+      self?.resolveLeading(at: indexPath)
+    }
+  }
 }

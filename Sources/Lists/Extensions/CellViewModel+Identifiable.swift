@@ -10,12 +10,12 @@ import Foundation
 /// ```swift
 /// snapshot.reconfigureItems([updatedItem])
 /// ```
-public extension CellViewModel where Self: Identifiable, ID: Hashable {
-    static func == (lhs: Self, rhs: Self) -> Bool {
-        lhs.id == rhs.id
-    }
+extension CellViewModel where Self: Identifiable, ID: Hashable {
+  public static func ==(lhs: Self, rhs: Self) -> Bool {
+    lhs.id == rhs.id
+  }
 
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(id)
-    }
+  public func hash(into hasher: inout Hasher) {
+    hasher.combine(id)
+  }
 }
