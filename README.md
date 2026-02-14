@@ -7,7 +7,7 @@ A fast, pure-Swift diffable data source for `UICollectionView`. Drop-in replacem
 | Library | Purpose |
 |:--------|:--------|
 | **ListKit** | Low-level diffing engine and data source. API-compatible with Apple's `NSDiffableDataSourceSnapshot`. |
-| **Lists** | High-level, ViewModel-driven layer with result-builder DSL, automatic cell registration, and pre-built list configurations. |
+| **Lists** | High-level, ViewModel-driven layer with result-builder DSL, automatic cell registration, pre-built list configurations, and SwiftUI wrappers. |
 
 ## Requirements
 
@@ -21,7 +21,7 @@ A fast, pure-Swift diffable data source for `UICollectionView`. Drop-in replacem
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/Iron-Ham/ListKit", from: "0.0.1"),
+    .package(url: "https://github.com/Iron-Ham/ListKit", from: "0.1.0"),
 ]
 ```
 
@@ -106,37 +106,42 @@ await dataSource.apply(snapshot)
 
 ## Architecture
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│  Lists                                                       │
-│  ┌──────────────┐  ┌───────────┐  ┌──────────────┐           │
-│  │ SimpleList   │  │ GroupedList│  │ OutlineList  │           │
-│  └──────┬───────┘  └─────┬─────┘  └──────┬───────┘           │
-│         └────────┬───────┘               │                   │
-│           ┌──────▼──────┐                │                   │
-│           │ListDataSource│───────────────┘                   │
-│           └──────┬──────┘                                    │
-│       ┌──────────▼───────────┐                               │
-│       │MixedListDataSource   │  (heterogeneous cell types)   │
-│       │  AnyItem + Registrar │                               │
-│       └──────────┬───────────┘                               │
-│   ┌──────────────┼──────────────────┐                        │
-│   │SnapshotBuilder│  CellViewModel  │                        │
-│   └──────────────┴──────────────────┘                        │
-├──────────────────────────────────────────────────────────────┤
-│  ListKit                                                     │
-│  ┌─────────────────────────────────────┐                     │
-│  │ CollectionViewDiffableDataSource    │                     │
-│  └──────────────┬──────────────────────┘                     │
-│  ┌──────────────▼──────────────────────┐                     │
-│  │ DiffableDataSourceSnapshot          │                     │
-│  │ DiffableDataSourceSectionSnapshot   │                     │
-│  └──────────────┬──────────────────────┘                     │
-│  ┌──────────────▼──────────────────────┐                     │
-│  │ HeckelDiff (O(n))                   │                     │
-│  │ SectionedDiff                       │                     │
-│  └─────────────────────────────────────┘                     │
-└──────────────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    subgraph Lists
+        subgraph SwiftUI
+            SLV[SimpleListView]
+            GLV[GroupedListView]
+            OLV[OutlineListView]
+        end
+        subgraph UIKit
+            SL[SimpleList]
+            GL[GroupedList]
+            OL[OutlineList]
+        end
+        LDS[ListDataSource]
+        MLDS[MixedListDataSource<br><i>AnyItem + Registrar</i>]
+        SB[SnapshotBuilder / CellViewModel]
+
+        SLV --> SL
+        GLV --> GL
+        OLV --> OL
+        SL --> LDS
+        GL --> LDS
+        OL --> LDS
+        LDS --> MLDS
+        MLDS --> SB
+    end
+
+    subgraph ListKit
+        CVDDS[CollectionViewDiffableDataSource]
+        SNAP[DiffableDataSourceSnapshot<br>DiffableDataSourceSectionSnapshot]
+        DIFF[HeckelDiff · SectionedDiff]
+
+        CVDDS --> SNAP --> DIFF
+    end
+
+    SB --> CVDDS
 ```
 
 ## Features
@@ -195,6 +200,89 @@ await dataSource.apply {
 | `GroupedList<SectionID, Item>` | Multi-section with headers/footers from `SectionModel`. |
 | `OutlineList<Item>` | Hierarchical expand/collapse via `OutlineItem` tree. |
 
+All three support selection, swipe actions (leading + trailing), context menus, and pull-to-refresh.
+
+### SwiftUI Wrappers
+
+Each configuration has a `UIViewRepresentable` wrapper. Use the inline content API to define cells with a `@ViewBuilder` closure — no `CellViewModel` struct needed:
+
+```swift
+import Lists
+import SwiftUI
+
+struct FruitsView: View {
+    @State private var fruits = ["Apple", "Banana", "Cherry"]
+
+    var body: some View {
+        SimpleListView(
+            items: fruits,
+            accessories: [.disclosureIndicator],
+            onSelect: { fruit in print(fruit) },
+            trailingSwipeActionsProvider: { fruit in
+                UISwipeActionsConfiguration(actions: [
+                    UIContextualAction(style: .destructive, title: "Delete") { _, _, done in
+                        fruits.removeAll { $0 == fruit }
+                        done(true)
+                    }
+                ])
+            },
+            onRefresh: {
+                try? await Task.sleep(for: .seconds(1))
+                fruits.shuffle()
+            }
+        ) { fruit in
+            Text(fruit)
+        }
+    }
+}
+```
+
+Grouped and outline wrappers follow the same pattern:
+
+```swift
+// Grouped sections with headers/footers
+GroupedListView(
+    sections: [
+        SectionModel(id: "recent", items: recentItems, header: "Recent"),
+        SectionModel(id: "all", items: allItems, header: "All"),
+    ],
+    onSelect: { item in ... }
+) { item in
+    Text(item.name)
+}
+
+// Hierarchical outline
+OutlineListView(
+    items: [
+        OutlineItem(item: "Animals", children: [
+            OutlineItem(item: "Dog"),
+            OutlineItem(item: "Cat"),
+        ], isExpanded: true),
+    ]
+) { item in
+    Text(item)
+}
+```
+
+For custom cell view models with reusable styling, conform to `SwiftUICellViewModel`:
+
+```swift
+struct LanguageItem: SwiftUICellViewModel, Identifiable {
+    let id: UUID
+    let name: String
+
+    var body: some View {
+        Text(name).font(.body)
+    }
+
+    var accessories: [ListAccessory] {
+        [.disclosureIndicator]
+    }
+}
+```
+
+`ListAccessory` provides a pure-Swift enum over common cell accessories, with a `.custom(UICellAccessory, key:)` escape hatch for advanced cases.
+
 ### Hierarchical Data
 
 `DiffableDataSourceSectionSnapshot` supports parent-child relationships with expand/collapse:
@@ -250,7 +338,7 @@ All types are `Sendable`. The data source is `@MainActor`. Snapshots are value t
 
 ## Current Limitations
 
-**Delegate access in pre-built configurations.** `SimpleList`, `GroupedList`, and `OutlineList` own the `UICollectionViewDelegate` and only expose `onSelect`. Swipe actions, context menus, and drag-and-drop require using `ListDataSource` or `CollectionViewDiffableDataSource` directly with your own delegate.
+**Drag-and-drop.** The pre-built configurations (`SimpleList`, `GroupedList`, `OutlineList`) do not yet support drag-and-drop reordering. Use `ListDataSource` or `CollectionViewDiffableDataSource` directly with your own delegate for this.
 
 ## Benchmarks
 
@@ -334,6 +422,7 @@ Sources/
     Builder/        # SnapshotBuilder, ItemsBuilder, MixedSnapshotBuilder, DSL extensions
     Mixed/          # AnyItem, DynamicCellRegistrar
     Configurations/ # SimpleList, GroupedList, OutlineList
+    SwiftUI/        # SimpleListView, GroupedListView, OutlineListView, SwiftUICellViewModel
     Extensions/     # LayoutHelpers, CellViewModel+Identifiable
 Tests/
   ListKitTests/     # Diff, snapshot, data source
