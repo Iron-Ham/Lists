@@ -229,4 +229,9 @@ docs:
 			cp -R "$$LISTKIT"/data/documentation/listkit* docs/data/documentation/ 2>/dev/null || true; \
 			cp -R "$$LISTKIT"/data/documentation/listkit.json docs/data/documentation/ 2>/dev/null || true; \
 		fi
+	@cp docs/index.html docs/404.html
+	@cp docs/index.html docs/documentation/index.html
+	@mkdir -p docs/documentation/listkit
+	@cp docs/index.html docs/documentation/listkit/index.html
+	@cp scripts/documentation-landing.json docs/data/documentation.json
 	@echo "$(GREEN)Documentation generated in docs/$(RESET)"

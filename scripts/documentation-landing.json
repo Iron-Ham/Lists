@@ -1,0 +1,125 @@
+{
+  "identifier": {
+    "interfaceLanguage": "swift",
+    "url": "doc://ListKit/documentation"
+  },
+  "topicSectionsStyle": "detailedGrid",
+  "references": {
+    "doc://ListKit/documentation/ListKit": {
+      "role": "collection",
+      "title": "ListKit",
+      "abstract": [
+        {
+          "text": "A high-performance diffable data source and snapshot engine for UICollectionView.",
+          "type": "text"
+        }
+      ],
+      "type": "topic",
+      "url": "/documentation/listkit",
+      "identifier": "doc://ListKit/documentation/ListKit",
+      "kind": "symbol"
+    },
+    "doc://Lists/documentation/Lists": {
+      "role": "collection",
+      "title": "Lists",
+      "abstract": [
+        {
+          "text": "A declarative, type-safe framework for building collection view lists in UIKit and SwiftUI.",
+          "type": "text"
+        }
+      ],
+      "type": "topic",
+      "url": "/documentation/lists",
+      "identifier": "doc://Lists/documentation/Lists",
+      "kind": "symbol"
+    },
+    "doc://Lists/documentation/Lists/QuickStart": {
+      "role": "article",
+      "title": "Getting Started with Lists",
+      "abstract": [
+        {
+          "text": "Build collection view lists in minutes using type-safe cell view models and declarative snapshots.",
+          "type": "text"
+        }
+      ],
+      "type": "topic",
+      "url": "/documentation/lists/quickstart",
+      "identifier": "doc://Lists/documentation/Lists/QuickStart",
+      "kind": "article"
+    },
+    "doc://ListKit/documentation/ListKit/UsingListKit": {
+      "role": "article",
+      "title": "Using ListKit Directly",
+      "abstract": [
+        {
+          "text": "Build custom collection view data sources with full control over diffing and batch updates.",
+          "type": "text"
+        }
+      ],
+      "type": "topic",
+      "url": "/documentation/listkit/usinglistkit",
+      "identifier": "doc://ListKit/documentation/ListKit/UsingListKit",
+      "kind": "article"
+    },
+    "doc://Lists/documentation/Lists/UIKitTutorial": {
+      "role": "article",
+      "title": "Building Lists in UIKit",
+      "abstract": [
+        {
+          "text": "Use SimpleList, GroupedList, and OutlineList to build collection view lists with minimal boilerplate.",
+          "type": "text"
+        }
+      ],
+      "type": "topic",
+      "url": "/documentation/lists/uikittutorial",
+      "identifier": "doc://Lists/documentation/Lists/UIKitTutorial",
+      "kind": "article"
+    },
+    "doc://Lists/documentation/Lists/SwiftUITutorial": {
+      "role": "article",
+      "title": "Building Lists in SwiftUI",
+      "abstract": [
+        {
+          "text": "Use SimpleListView, GroupedListView, and OutlineListView to embed UICollectionView lists in SwiftUI.",
+          "type": "text"
+        }
+      ],
+      "type": "topic",
+      "url": "/documentation/lists/swiftuitutorial",
+      "identifier": "doc://Lists/documentation/Lists/SwiftUITutorial",
+      "kind": "article"
+    }
+  },
+  "topicSections": [
+    {
+      "anchor": "Modules",
+      "title": "Modules",
+      "identifiers": [
+        "doc://ListKit/documentation/ListKit",
+        "doc://Lists/documentation/Lists"
+      ]
+    },
+    {
+      "anchor": "Tutorials",
+      "title": "Tutorials",
+      "identifiers": [
+        "doc://Lists/documentation/Lists/QuickStart",
+        "doc://Lists/documentation/Lists/UIKitTutorial",
+        "doc://Lists/documentation/Lists/SwiftUITutorial",
+        "doc://ListKit/documentation/ListKit/UsingListKit"
+      ]
+    }
+  ],
+  "sections": [],
+  "metadata": {
+    "roleHeading": "Package",
+    "title": "ListKit",
+    "role": "collection"
+  },
+  "schemaVersion": {
+    "major": 0,
+    "minor": 3,
+    "patch": 0
+  },
+  "kind": "article"
+}
