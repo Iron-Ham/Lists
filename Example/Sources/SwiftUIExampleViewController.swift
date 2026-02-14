@@ -29,8 +29,8 @@ final class SwiftUIExampleViewController: UIViewController {
             ContactRow(name: name, role: role, status: status, avatarColor: avatarColor)
         }
 
-        var accessories: [UICellAccessory] {
-            [.disclosureIndicator()]
+        var accessories: [ListAccessory] {
+            [.disclosureIndicator]
         }
     }
 

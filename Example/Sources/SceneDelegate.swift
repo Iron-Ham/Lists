@@ -1,3 +1,4 @@
+import SwiftUI
 import UIKit
 
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
@@ -18,6 +19,11 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             makeTab(MixedExampleViewController(), title: "Mixed", icon: "square.stack.3d.up"),
             makeTab(OutlineExampleViewController(), title: "Outline", icon: "list.triangle"),
             makeTab(SwiftUIExampleViewController(), title: "SwiftUI", icon: "swift"),
+            makeTab(
+                UIHostingController(rootView: SwiftUIWrappersExampleView()),
+                title: "Wrappers",
+                icon: "rectangle.on.rectangle"
+            ),
             makeTab(LiveExampleViewController(), title: "Live", icon: "chart.line.uptrend.xyaxis"),
         ]
 
