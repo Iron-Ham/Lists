@@ -1,6 +1,7 @@
 import ListKit
 
 public extension DiffableDataSourceSnapshot where ItemIdentifierType == AnyItem {
+    /// Creates a snapshot from a ``MixedSnapshotBuilder`` result builder closure.
     init(
         @MixedSnapshotBuilder<SectionIdentifierType> content: () -> [MixedSection<SectionIdentifierType>]
     ) {

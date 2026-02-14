@@ -1,11 +1,19 @@
 import ListKit
 import UIKit
 
+/// A node in a tree structure used by ``OutlineList`` to represent hierarchical data.
+///
+/// Each `OutlineItem` wraps a value and optionally has children. The `isExpanded` flag
+/// controls whether children are visible when the outline is rendered.
 public struct OutlineItem<Item: Hashable & Sendable>: Sendable, Equatable {
+    /// The data value for this node.
     public let item: Item
+    /// The child nodes. Empty for leaf items.
     public let children: [OutlineItem<Item>]
+    /// Whether this node's children should be visible.
     public let isExpanded: Bool
 
+    /// Creates an outline item with optional children and expansion state.
     public init(item: Item, children: [OutlineItem<Item>] = [], isExpanded: Bool = false) {
         self.item = item
         self.children = children
@@ -22,13 +30,28 @@ public struct OutlineItem<Item: Hashable & Sendable>: Sendable, Equatable {
     }
 }
 
+/// A hierarchical outline list backed by a `UICollectionView` with section snapshots.
+///
+/// `OutlineList` uses ``DiffableDataSourceSectionSnapshot`` under the hood to model
+/// parent–child relationships. Items can be expanded or collapsed.
+///
+/// ```swift
+/// let list = OutlineList<FileItem>()
+/// await list.setItems([
+///     OutlineItem(item: folder, children: [
+///         OutlineItem(item: file)
+///     ], isExpanded: true)
+/// ])
+/// ```
 @MainActor
 public final class OutlineList<Item: CellViewModel>: NSObject, UICollectionViewDelegate {
+    /// The underlying collection view. Add this to your view hierarchy.
     public let collectionView: UICollectionView
     private let dataSource: ListDataSource<Int, Item>
     private let bridge: SwipeActionBridge<Int, Item>
     private var applyTask: Task<Void, Never>?
 
+    /// Called when the user taps an item.
     public var onSelect: (@MainActor (Item) -> Void)?
 
     /// Closure that returns trailing swipe actions for a given item.
@@ -38,6 +61,7 @@ public final class OutlineList<Item: CellViewModel>: NSObject, UICollectionViewD
     /// Closure that returns a context menu configuration for a given item.
     public var contextMenuProvider: (@MainActor (Item) -> UIContextMenuConfiguration?)?
 
+    /// Creates an outline list with the specified list appearance.
     public init(appearance: UICollectionLayoutListConfiguration.Appearance = .sidebar) {
         let bridge = SwipeActionBridge<Int, Item>()
         self.bridge = bridge
@@ -56,6 +80,7 @@ public final class OutlineList<Item: CellViewModel>: NSObject, UICollectionViewD
         bridge.leadingProvider = { [weak self] item in self?.leadingSwipeActionsProvider?(item) }
     }
 
+    /// Replaces the outline's tree, computing and animating the diff.
     public func setItems(_ items: [OutlineItem<Item>], animatingDifferences: Bool = true) async {
         let previousTask = applyTask
         let task = Task { @MainActor in
@@ -78,6 +103,7 @@ public final class OutlineList<Item: CellViewModel>: NSObject, UICollectionViewD
         await task.value
     }
 
+    /// Returns a copy of the current snapshot.
     public func snapshot() -> DiffableDataSourceSnapshot<Int, Item> {
         dataSource.snapshot()
     }

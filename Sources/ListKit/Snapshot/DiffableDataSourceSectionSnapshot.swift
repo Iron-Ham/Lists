@@ -1,6 +1,12 @@
+/// A hierarchical snapshot representing the items within a single section.
+///
+/// Use a section snapshot to model parent–child relationships for outline-style lists.
+/// Items can be expanded or collapsed, and the ``visibleItems`` property returns only
+/// the items that are currently visible given the expansion state.
 public struct DiffableDataSourceSectionSnapshot<ItemIdentifierType: Hashable & Sendable>: Sendable {
     // MARK: - Internal Storage
 
+    /// All items in depth-first order, including collapsed items.
     public private(set) var items: [ItemIdentifierType] = []
     private var itemSet: Set<ItemIdentifierType> = []
     private var parentMap: [ItemIdentifierType: ItemIdentifierType] = [:]
@@ -13,6 +19,7 @@ public struct DiffableDataSourceSectionSnapshot<ItemIdentifierType: Hashable & S
 
     // MARK: - Mutations
 
+    /// Appends items as children of the given parent, or as root items if `parent` is `nil`.
     public mutating func append(_ items: [ItemIdentifierType], to parent: ItemIdentifierType? = nil) {
         if let parent {
             // Append as children of parent
@@ -45,6 +52,7 @@ public struct DiffableDataSourceSectionSnapshot<ItemIdentifierType: Hashable & S
         itemSet.formUnion(items)
     }
 
+    /// Inserts items immediately before the specified item.
     public mutating func insert(_ items: [ItemIdentifierType], before item: ItemIdentifierType) {
         guard let index = self.items.firstIndex(of: item) else { return }
 
@@ -64,6 +72,7 @@ public struct DiffableDataSourceSectionSnapshot<ItemIdentifierType: Hashable & S
         }
     }
 
+    /// Inserts items immediately after the specified item and its descendants.
     public mutating func insert(_ items: [ItemIdentifierType], after item: ItemIdentifierType) {
         guard let index = self.items.firstIndex(of: item) else { return }
 
@@ -93,6 +102,7 @@ public struct DiffableDataSourceSectionSnapshot<ItemIdentifierType: Hashable & S
         }
     }
 
+    /// Removes items and all their descendants from the snapshot.
     public mutating func delete(_ items: [ItemIdentifierType]) {
         // Collect all items to delete including descendants
         var toDelete = Set<ItemIdentifierType>(minimumCapacity: items.count)
@@ -119,10 +129,12 @@ public struct DiffableDataSourceSectionSnapshot<ItemIdentifierType: Hashable & S
 
     // MARK: - Queries
 
+    /// Returns the parent of the specified item, or `nil` if it is a root item.
     public func parent(of item: ItemIdentifierType) -> ItemIdentifierType? {
         parentMap[item]
     }
 
+    /// Returns a new section snapshot containing only the subtree rooted at the specified item.
     public func snapshot(of item: ItemIdentifierType, includingParent: Bool = false) -> DiffableDataSourceSectionSnapshot {
         var newSnapshot = DiffableDataSourceSectionSnapshot()
 
@@ -150,10 +162,12 @@ public struct DiffableDataSourceSectionSnapshot<ItemIdentifierType: Hashable & S
         return newSnapshot
     }
 
+    /// Returns whether the snapshot contains the specified item.
     public func contains(_ item: ItemIdentifierType) -> Bool {
         itemSet.contains(item)
     }
 
+    /// Returns the nesting depth of the specified item (0 for root items).
     public func level(of item: ItemIdentifierType) -> Int {
         var level = 0
         var current = item
@@ -164,6 +178,7 @@ public struct DiffableDataSourceSectionSnapshot<ItemIdentifierType: Hashable & S
         return level
     }
 
+    /// Returns whether the item is visible given the current expansion state of its ancestors.
     public func isVisible(_ item: ItemIdentifierType) -> Bool {
         var current = item
         while let parent = parentMap[current] {
@@ -175,26 +190,31 @@ public struct DiffableDataSourceSectionSnapshot<ItemIdentifierType: Hashable & S
         return true
     }
 
+    /// Returns whether the specified item is in the expanded state.
     public func isExpanded(_ item: ItemIdentifierType) -> Bool {
         expandedItems.contains(item)
     }
 
     // MARK: - Expand/Collapse
 
+    /// Expands the specified items, making their children visible.
     public mutating func expand(_ items: [ItemIdentifierType]) {
         expandedItems.formUnion(items)
     }
 
+    /// Collapses the specified items, hiding their children.
     public mutating func collapse(_ items: [ItemIdentifierType]) {
         expandedItems.subtract(items)
     }
 
     // MARK: - Computed Properties
 
+    /// The top-level items that have no parent.
     public var rootItems: [ItemIdentifierType] {
         items.filter { parentMap[$0] == nil }
     }
 
+    /// The items that are currently visible given the expansion state of all ancestors.
     public var visibleItems: [ItemIdentifierType] {
         // Single-pass top-down: an item is visible iff it has no parent,
         // or its parent is both expanded and visible. We walk the flat list

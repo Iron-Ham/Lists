@@ -19,6 +19,7 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/Instagram/IGListKit", from: "5.0.0"),
         .package(url: "https://github.com/jessesquires/ReactiveCollectionsKit", from: "0.2.0"),
+        .package(url: "https://github.com/swiftlang/swift-docc-plugin", from: "1.4.3"),
     ],
     targets: [
         .target(
