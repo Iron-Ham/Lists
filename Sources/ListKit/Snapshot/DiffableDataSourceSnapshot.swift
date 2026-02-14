@@ -1,3 +1,11 @@
+/// A point-in-time representation of the data in a collection view, organized by sections and items.
+///
+/// `DiffableDataSourceSnapshot` is the primary currency type for updating a
+/// ``CollectionViewDiffableDataSource``. Build a snapshot by appending sections and items,
+/// then apply it to the data source to compute and animate the minimal set of changes.
+///
+/// Unlike Apple's `NSDiffableDataSourceSnapshot`, this implementation uses parallel arrays
+/// and a lazy reverse index for O(1) section lookups and O(n) diffing without Foundation overhead.
 public struct DiffableDataSourceSnapshot<SectionIdentifierType: Hashable & Sendable,
     ItemIdentifierType: Hashable & Sendable>: Sendable
 {
@@ -18,10 +26,14 @@ public struct DiffableDataSourceSnapshot<SectionIdentifierType: Hashable & Senda
     private var _itemToSection: [ItemIdentifierType: SectionIdentifierType]?
 
     /// Total item count, updated incrementally on every mutation.
+    /// The total number of items across all sections, updated incrementally on every mutation.
     public private(set) var numberOfItems: Int = 0
 
+    /// Items that have been marked for reload via ``reloadItems(_:)``.
     public private(set) var reloadedItemIdentifiers: Set<ItemIdentifierType> = []
+    /// Items that have been marked for reconfiguration via ``reconfigureItems(_:)``.
     public private(set) var reconfiguredItemIdentifiers: Set<ItemIdentifierType> = []
+    /// Sections that have been marked for reload via ``reloadSections(_:)``.
     public private(set) var reloadedSectionIdentifiers: Set<SectionIdentifierType> = []
 
     // MARK: - Initialization
@@ -46,6 +58,7 @@ public struct DiffableDataSourceSnapshot<SectionIdentifierType: Hashable & Senda
 
     // MARK: - Section Operations
 
+    /// Appends the given section identifiers to the end of the snapshot.
     public mutating func appendSections(_ identifiers: [SectionIdentifierType]) {
         sectionItemArrays.reserveCapacity(sectionItemArrays.count + identifiers.count)
         for identifier in identifiers {
@@ -55,6 +68,7 @@ public struct DiffableDataSourceSnapshot<SectionIdentifierType: Hashable & Senda
         }
     }
 
+    /// Inserts the given sections immediately before the specified section.
     public mutating func insertSections(_ identifiers: [SectionIdentifierType], beforeSection toIdentifier: SectionIdentifierType) {
         guard let index = sectionIndex[toIdentifier] else { return }
         sectionIdentifiers.insert(contentsOf: identifiers, at: index)
@@ -64,6 +78,7 @@ public struct DiffableDataSourceSnapshot<SectionIdentifierType: Hashable & Senda
         rebuildSectionIndex()
     }
 
+    /// Inserts the given sections immediately after the specified section.
     public mutating func insertSections(_ identifiers: [SectionIdentifierType], afterSection toIdentifier: SectionIdentifierType) {
         guard let index = sectionIndex[toIdentifier] else { return }
         let insertAt = index + 1
@@ -74,6 +89,7 @@ public struct DiffableDataSourceSnapshot<SectionIdentifierType: Hashable & Senda
         rebuildSectionIndex()
     }
 
+    /// Removes the specified sections and all their items from the snapshot.
     public mutating func deleteSections(_ identifiers: [SectionIdentifierType]) {
         let toDelete = Set(identifiers)
         var indicesToRemove: [Int] = []
@@ -98,6 +114,7 @@ public struct DiffableDataSourceSnapshot<SectionIdentifierType: Hashable & Senda
         rebuildSectionIndex()
     }
 
+    /// Moves the specified section to the position immediately before another section.
     public mutating func moveSection(_ identifier: SectionIdentifierType, beforeSection toIdentifier: SectionIdentifierType) {
         guard let fromIndex = sectionIndex[identifier],
               let toIndex = sectionIndex[toIdentifier] else { return }
@@ -109,6 +126,7 @@ public struct DiffableDataSourceSnapshot<SectionIdentifierType: Hashable & Senda
         rebuildSectionIndex()
     }
 
+    /// Moves the specified section to the position immediately after another section.
     public mutating func moveSection(_ identifier: SectionIdentifierType, afterSection toIdentifier: SectionIdentifierType) {
         guard let fromIndex = sectionIndex[identifier],
               let toIndex = sectionIndex[toIdentifier] else { return }
@@ -120,12 +138,14 @@ public struct DiffableDataSourceSnapshot<SectionIdentifierType: Hashable & Senda
         rebuildSectionIndex()
     }
 
+    /// Marks the specified sections for reload on the next apply.
     public mutating func reloadSections(_ identifiers: [SectionIdentifierType]) {
         reloadedSectionIdentifiers.formUnion(identifiers)
     }
 
     // MARK: - Item Operations
 
+    /// Appends items to the specified section, or to the last section if none is given.
     public mutating func appendItems(_ identifiers: [ItemIdentifierType], toSection sectionIdentifier: SectionIdentifierType? = nil) {
         let targetSection = sectionIdentifier ?? sectionIdentifiers.last
         guard let section = targetSection, let idx = sectionIndex[section] else {
@@ -163,6 +183,7 @@ public struct DiffableDataSourceSnapshot<SectionIdentifierType: Hashable & Senda
         }
     }
 
+    /// Inserts items immediately before the specified item.
     public mutating func insertItems(_ identifiers: [ItemIdentifierType], beforeItem beforeIdentifier: ItemIdentifierType) {
         ensureItemToSection()
         guard let section = _itemToSection![beforeIdentifier],
@@ -176,6 +197,7 @@ public struct DiffableDataSourceSnapshot<SectionIdentifierType: Hashable & Senda
         numberOfItems += identifiers.count
     }
 
+    /// Inserts items immediately after the specified item.
     public mutating func insertItems(_ identifiers: [ItemIdentifierType], afterItem afterIdentifier: ItemIdentifierType) {
         ensureItemToSection()
         guard let section = _itemToSection![afterIdentifier],
@@ -189,6 +211,7 @@ public struct DiffableDataSourceSnapshot<SectionIdentifierType: Hashable & Senda
         numberOfItems += identifiers.count
     }
 
+    /// Removes the specified items from the snapshot.
     public mutating func deleteItems(_ identifiers: [ItemIdentifierType]) {
         let toDelete = Set(identifiers)
         reloadedItemIdentifiers.subtract(toDelete)
@@ -222,6 +245,7 @@ public struct DiffableDataSourceSnapshot<SectionIdentifierType: Hashable & Senda
         }
     }
 
+    /// Removes all items from every section, leaving the section structure intact.
     public mutating func deleteAllItems() {
         for idx in sectionItemArrays.indices {
             sectionItemArrays[idx] = []
@@ -232,6 +256,7 @@ public struct DiffableDataSourceSnapshot<SectionIdentifierType: Hashable & Senda
         reconfiguredItemIdentifiers.removeAll()
     }
 
+    /// Moves an item to the position immediately before another item.
     public mutating func moveItem(_ identifier: ItemIdentifierType, beforeItem toIdentifier: ItemIdentifierType) {
         ensureItemToSection()
         guard let fromSection = _itemToSection![identifier],
@@ -248,6 +273,7 @@ public struct DiffableDataSourceSnapshot<SectionIdentifierType: Hashable & Senda
         _itemToSection![identifier] = toSection
     }
 
+    /// Moves an item to the position immediately after another item.
     public mutating func moveItem(_ identifier: ItemIdentifierType, afterItem toIdentifier: ItemIdentifierType) {
         ensureItemToSection()
         guard let fromSection = _itemToSection![identifier],
@@ -264,24 +290,29 @@ public struct DiffableDataSourceSnapshot<SectionIdentifierType: Hashable & Senda
         _itemToSection![identifier] = toSection
     }
 
+    /// Marks items for reload, causing their cells to be dequeued and configured again on the next apply.
     public mutating func reloadItems(_ identifiers: [ItemIdentifierType]) {
         reloadedItemIdentifiers.formUnion(identifiers)
     }
 
+    /// Marks items for reconfiguration, updating existing cells in place without dequeuing.
     public mutating func reconfigureItems(_ identifiers: [ItemIdentifierType]) {
         reconfiguredItemIdentifiers.formUnion(identifiers)
     }
 
     // MARK: - Queries
 
+    /// Whether the snapshot contains no sections and no items.
     public var isEmpty: Bool {
         numberOfItems == 0 && sectionIdentifiers.isEmpty
     }
 
+    /// The number of sections in the snapshot.
     public var numberOfSections: Int {
         sectionIdentifiers.count
     }
 
+    /// All item identifiers across all sections, in order.
     public var itemIdentifiers: [ItemIdentifierType] {
         var result: [ItemIdentifierType] = []
         result.reserveCapacity(numberOfItems)
@@ -291,6 +322,7 @@ public struct DiffableDataSourceSnapshot<SectionIdentifierType: Hashable & Senda
         return result
     }
 
+    /// Returns the item identifiers in the specified section.
     public func itemIdentifiers(inSection identifier: SectionIdentifierType) -> [ItemIdentifierType] {
         guard let idx = sectionIndex[identifier] else { return [] }
         return sectionItemArrays[idx]
@@ -310,6 +342,7 @@ public struct DiffableDataSourceSnapshot<SectionIdentifierType: Hashable & Senda
         return sectionItemArrays[sectionIndex].count
     }
 
+    /// Returns the section that contains the specified item, or `nil` if not found.
     public func sectionIdentifier(containingItem identifier: ItemIdentifierType) -> SectionIdentifierType? {
         // Check the lazy map first (available if any mutation method was called).
         if let map = _itemToSection {
@@ -325,6 +358,7 @@ public struct DiffableDataSourceSnapshot<SectionIdentifierType: Hashable & Senda
         return nil
     }
 
+    /// Returns the global index of the specified item across all sections, or `nil` if not found.
     public func index(ofItem identifier: ItemIdentifierType) -> Int? {
         var currentIndex = 0
         for items in sectionItemArrays {
@@ -336,10 +370,12 @@ public struct DiffableDataSourceSnapshot<SectionIdentifierType: Hashable & Senda
         return nil
     }
 
+    /// Returns the index of the specified section, or `nil` if not found.
     public func index(ofSection identifier: SectionIdentifierType) -> Int? {
         sectionIndex[identifier]
     }
 
+    /// Returns the number of items in the specified section.
     public func numberOfItems(inSection identifier: SectionIdentifierType) -> Int {
         guard let idx = sectionIndex[identifier] else { return 0 }
         return sectionItemArrays[idx].count

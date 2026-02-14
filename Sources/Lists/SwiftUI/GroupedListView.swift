@@ -1,14 +1,25 @@
 import SwiftUI
 import UIKit
 
+/// A SwiftUI wrapper around ``GroupedList`` for displaying sectioned lists with headers and footers.
+///
+/// Supports selection, swipe actions, context menus, and pull-to-refresh. Also provides
+/// an inline content initializer that accepts a `@ViewBuilder`.
 @MainActor
 public struct GroupedListView<SectionID: Hashable & Sendable, Item: CellViewModel>: UIViewRepresentable {
+    /// The sections to display, including their items, headers, and footers.
     public let sections: [SectionModel<SectionID, Item>]
+    /// The visual appearance of the list.
     public let appearance: UICollectionLayoutListConfiguration.Appearance
+    /// Called when the user taps an item.
     public var onSelect: (@MainActor (Item) -> Void)?
+    /// Closure that returns trailing swipe actions for a given item.
     public var trailingSwipeActionsProvider: (@MainActor (Item) -> UISwipeActionsConfiguration?)?
+    /// Closure that returns leading swipe actions for a given item.
     public var leadingSwipeActionsProvider: (@MainActor (Item) -> UISwipeActionsConfiguration?)?
+    /// Closure that returns a context menu configuration for a given item.
     public var contextMenuProvider: (@MainActor (Item) -> UIContextMenuConfiguration?)?
+    /// An async closure invoked on pull-to-refresh.
     public var onRefresh: (@MainActor () async -> Void)?
 
     public init(

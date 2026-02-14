@@ -1,14 +1,25 @@
 import SwiftUI
 import UIKit
 
+/// A SwiftUI wrapper around ``OutlineList`` for displaying hierarchical outline lists.
+///
+/// Supports selection, swipe actions, context menus, and pull-to-refresh. Also provides
+/// an inline content initializer that accepts a `@ViewBuilder`.
 @MainActor
 public struct OutlineListView<Item: CellViewModel>: UIViewRepresentable {
+    /// The hierarchical items to display.
     public let items: [OutlineItem<Item>]
+    /// The visual appearance of the list.
     public let appearance: UICollectionLayoutListConfiguration.Appearance
+    /// Called when the user taps an item.
     public var onSelect: (@MainActor (Item) -> Void)?
+    /// Closure that returns trailing swipe actions for a given item.
     public var trailingSwipeActionsProvider: (@MainActor (Item) -> UISwipeActionsConfiguration?)?
+    /// Closure that returns leading swipe actions for a given item.
     public var leadingSwipeActionsProvider: (@MainActor (Item) -> UISwipeActionsConfiguration?)?
+    /// Closure that returns a context menu configuration for a given item.
     public var contextMenuProvider: (@MainActor (Item) -> UIContextMenuConfiguration?)?
+    /// An async closure invoked on pull-to-refresh.
     public var onRefresh: (@MainActor () async -> Void)?
 
     public init(

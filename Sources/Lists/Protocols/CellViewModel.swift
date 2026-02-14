@@ -1,7 +1,16 @@
 import UIKit
 
+/// A value type that pairs a data model with a `UICollectionViewCell` subclass.
+///
+/// Implement ``configure(_:)`` to populate cell content. The framework handles
+/// cell registration and dequeuing automatically.
+///
+/// Conform to `Identifiable` to get free `Hashable`/`Equatable` based on `id`,
+/// which is what the diff algorithm uses to track identity across snapshots.
 public protocol CellViewModel: Hashable, Sendable {
+    /// The cell class this view model configures.
     associatedtype Cell: UICollectionViewCell
+    /// Populates the given cell with the view model's data.
     @MainActor func configure(_ cell: Cell)
 }
 

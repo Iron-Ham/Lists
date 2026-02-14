@@ -1,13 +1,20 @@
-/// A section containing mixed `CellViewModel` types, wrapped as `AnyItem`.
+/// A section containing mixed `CellViewModel` types, wrapped as ``AnyItem``.
+///
+/// Use with ``MixedSnapshotBuilder`` to build heterogeneous sections where each
+/// item can be a different `CellViewModel` type.
 public struct MixedSection<SectionID: Hashable & Sendable>: Sendable {
+    /// The section identifier.
     public let id: SectionID
+    /// The type-erased items in this section.
     public let items: [AnyItem]
 
+    /// Creates a section using the ``MixedItemsBuilder`` result builder.
     public init(_ id: SectionID, @MixedItemsBuilder items: () -> [AnyItem]) {
         self.id = id
         self.items = items()
     }
 
+    /// Creates a section from an existing array of type-erased items.
     public init(_ id: SectionID, items: [AnyItem]) {
         self.id = id
         self.items = items

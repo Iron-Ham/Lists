@@ -1,8 +1,20 @@
 import ListKit
 import UIKit
 
+/// A multi-section list with headers and footers, backed by a `UICollectionView`.
+///
+/// `GroupedList` manages an inset-grouped layout with supplementary header/footer views
+/// automatically. Provide ``SectionModel`` values to populate sections.
+///
+/// ```swift
+/// let list = GroupedList<String, ContactItem>()
+/// await list.setSections([
+///     SectionModel(id: "friends", items: friends, header: "Friends"),
+/// ])
+/// ```
 @MainActor
 public final class GroupedList<SectionID: Hashable & Sendable, Item: CellViewModel>: NSObject, UICollectionViewDelegate {
+    /// The underlying collection view. Add this to your view hierarchy.
     public let collectionView: UICollectionView
     private let dataSource: ListDataSource<SectionID, Item>
     private let bridge: SwipeActionBridge<SectionID, Item>
@@ -10,6 +22,7 @@ public final class GroupedList<SectionID: Hashable & Sendable, Item: CellViewMod
     private var sectionFooters: [SectionID: String] = [:]
     private var applyTask: Task<Void, Never>?
 
+    /// Called when the user taps an item.
     public var onSelect: (@MainActor (Item) -> Void)?
 
     /// Closure that returns trailing swipe actions for a given item.
@@ -19,6 +32,7 @@ public final class GroupedList<SectionID: Hashable & Sendable, Item: CellViewMod
     /// Closure that returns a context menu configuration for a given item.
     public var contextMenuProvider: (@MainActor (Item) -> UIContextMenuConfiguration?)?
 
+    /// Creates a grouped list with the specified list appearance.
     public init(appearance: UICollectionLayoutListConfiguration.Appearance = .insetGrouped) {
         let bridge = SwipeActionBridge<SectionID, Item>()
         self.bridge = bridge
@@ -40,6 +54,7 @@ public final class GroupedList<SectionID: Hashable & Sendable, Item: CellViewMod
         bridge.leadingProvider = { [weak self] item in self?.leadingSwipeActionsProvider?(item) }
     }
 
+    /// Replaces all sections, computing and animating the diff.
     public func setSections(_ sections: [SectionModel<SectionID, Item>], animatingDifferences: Bool = true) async {
         let previousTask = applyTask
         let task = Task { @MainActor in
@@ -63,6 +78,7 @@ public final class GroupedList<SectionID: Hashable & Sendable, Item: CellViewMod
         await task.value
     }
 
+    /// Returns a copy of the current snapshot.
     public func snapshot() -> DiffableDataSourceSnapshot<SectionID, Item> {
         dataSource.snapshot()
     }

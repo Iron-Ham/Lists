@@ -1,5 +1,10 @@
 import UIKit
 
+/// A data source that manages a `UICollectionView` using snapshots and animated batch updates.
+///
+/// This is a drop-in replacement for `UICollectionViewDiffableDataSource` with two key
+/// differences: it uses ListKit's ``DiffableDataSourceSnapshot`` (no Foundation overhead)
+/// and serializes concurrent `apply` calls via a `Task` chain rather than a dispatch queue.
 @MainActor
 public final class CollectionViewDiffableDataSource<
     SectionIdentifierType: Hashable & Sendable,
@@ -7,10 +12,12 @@ public final class CollectionViewDiffableDataSource<
 >: NSObject, UICollectionViewDataSource {
     // MARK: - Typealiases
 
+    /// A closure that dequeues and configures a cell for a given item.
     public typealias CellProvider = @MainActor (
         UICollectionView, IndexPath, ItemIdentifierType
     ) -> UICollectionViewCell?
 
+    /// A closure that dequeues and configures a supplementary view (header, footer, etc.).
     public typealias SupplementaryViewProvider = @MainActor (
         UICollectionView, String, IndexPath
     ) -> UICollectionReusableView?
@@ -19,6 +26,7 @@ public final class CollectionViewDiffableDataSource<
 
     private weak var collectionView: UICollectionView?
     private let cellProvider: CellProvider
+    /// An optional closure for providing supplementary views (headers, footers).
     public var supplementaryViewProvider: SupplementaryViewProvider?
     private var currentSnapshot = DiffableDataSourceSnapshot<SectionIdentifierType, ItemIdentifierType>()
     private var fallbackRegistrations: [String: UICollectionView.SupplementaryRegistration<UICollectionReusableView>] = [:]
@@ -29,6 +37,9 @@ public final class CollectionViewDiffableDataSource<
 
     // MARK: - Initialization
 
+    /// Creates a data source that provides cells via the given closure.
+    ///
+    /// The data source automatically registers itself as the collection view's `dataSource`.
     public init(collectionView: UICollectionView, cellProvider: @escaping CellProvider) {
         self.collectionView = collectionView
         self.cellProvider = cellProvider
@@ -190,15 +201,18 @@ public final class CollectionViewDiffableDataSource<
 
     // MARK: - Query Methods
 
+    /// Returns a copy of the data source's current snapshot.
     public func snapshot() -> DiffableDataSourceSnapshot<SectionIdentifierType, ItemIdentifierType> {
         currentSnapshot
     }
 
+    /// Returns the item at the given index path, or `nil` if out of bounds.
     public func itemIdentifier(for indexPath: IndexPath) -> ItemIdentifierType? {
         guard indexPath.section < currentSnapshot.numberOfSections else { return nil }
         return currentSnapshot.itemIdentifier(inSectionAt: indexPath.section, itemIndex: indexPath.item)
     }
 
+    /// Returns the index path for the specified item, or `nil` if not found.
     public func indexPath(for itemIdentifier: ItemIdentifierType) -> IndexPath? {
         guard let section = currentSnapshot.sectionIdentifier(containingItem: itemIdentifier) else {
             return nil
@@ -209,11 +223,13 @@ public final class CollectionViewDiffableDataSource<
         return IndexPath(item: itemIndex, section: sectionIndex)
     }
 
+    /// Returns the section identifier at the given section index, or `nil` if out of bounds.
     public func sectionIdentifier(for index: Int) -> SectionIdentifierType? {
         guard index < currentSnapshot.sectionIdentifiers.count else { return nil }
         return currentSnapshot.sectionIdentifiers[index]
     }
 
+    /// Returns the index of the specified section identifier, or `nil` if not found.
     public func index(for sectionIdentifier: SectionIdentifierType) -> Int? {
         currentSnapshot.index(ofSection: sectionIdentifier)
     }

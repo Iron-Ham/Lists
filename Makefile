@@ -1,7 +1,7 @@
 # ABOUTME: Makefile for ListKit development.
 # ABOUTME: Run `make help` to see available commands.
 
-.PHONY: help setup install generate open build test test-listkit test-lists benchmark clean lint format install-hooks
+.PHONY: help setup install generate open build test test-listkit test-lists benchmark clean lint format install-hooks docs
 
 # Colors
 RESET  := \033[0m
@@ -46,6 +46,10 @@ help:
 	@printf "    $(CYAN)%-24s$(RESET) %s\n" "lint" "Lint Sources/, Tests/, and Example/ with SwiftFormat"
 	@printf "    $(CYAN)%-24s$(RESET) %s\n" "format" "Format code with SwiftFormat"
 	@printf "    $(CYAN)%-24s$(RESET) %s\n" "install-hooks" "Install git pre-commit hook"
+	@echo ""
+	@echo "  $(BOLD)◆ Documentation$(RESET)"
+	@echo "  $(DIM)──────────────────────────────────────────────────────────────$(RESET)"
+	@printf "    $(CYAN)%-24s$(RESET) %s\n" "docs" "Generate DocC documentation into docs/"
 	@echo ""
 	@echo "  $(BOLD)◆ Examples$(RESET)"
 	@echo "  $(DIM)──────────────────────────────────────────────────────────────$(RESET)"
@@ -196,3 +200,33 @@ install-hooks:
 	else \
 		echo "$(DIM)Not a git repo — skipping hook install.$(RESET)"; \
 	fi
+
+# =============================================================================
+# Documentation
+# =============================================================================
+
+docs:
+	@echo "Building documentation..."
+	xcodebuild docbuild \
+		-workspace ListKit.xcworkspace \
+		-scheme Lists \
+		-destination '$(DESTINATION)' \
+		-derivedDataPath $(DERIVED_DATA) \
+		OTHER_DOCC_FLAGS="--transform-for-static-hosting --hosting-base-path Lists" \
+		| xcpretty || xcodebuild docbuild \
+		-workspace ListKit.xcworkspace \
+		-scheme Lists \
+		-destination '$(DESTINATION)' \
+		-derivedDataPath $(DERIVED_DATA) \
+		OTHER_DOCC_FLAGS="--transform-for-static-hosting --hosting-base-path Lists"
+	@echo "Copying documentation to docs/..."
+	@rm -rf docs
+	@LISTS=$$(find $(DERIVED_DATA) -name 'Lists.doccarchive' | head -1) && \
+		LISTKIT=$$(find $(DERIVED_DATA) -name 'ListKit.doccarchive' | head -1) && \
+		if [ -z "$$LISTS" ]; then echo "Error: No Lists.doccarchive found"; exit 1; fi && \
+		cp -R "$$LISTS" docs && \
+		if [ -n "$$LISTKIT" ]; then \
+			cp -R "$$LISTKIT"/data/documentation/listkit* docs/data/documentation/ 2>/dev/null || true; \
+			cp -R "$$LISTKIT"/data/documentation/listkit.json docs/data/documentation/ 2>/dev/null || true; \
+		fi
+	@echo "$(GREEN)Documentation generated in docs/$(RESET)"

@@ -1,3 +1,7 @@
+/// A result builder for constructing arrays of a single ``CellViewModel`` type.
+///
+/// Used by ``SimpleList/setItems(animatingDifferences:content:)`` and
+/// ``SnapshotSection/init(_:items:)-6gwjp`` to enable declarative item lists.
 @resultBuilder
 public struct ItemsBuilder<Item: CellViewModel> {
     public static func buildBlock(_ components: [Item]...) -> [Item] {

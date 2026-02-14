@@ -13,6 +13,7 @@ public struct AnyItem: Hashable, Sendable {
     private let _wrapped: any Sendable
     let _dequeue: @MainActor @Sendable (UICollectionView, IndexPath, DynamicCellRegistrar) -> UICollectionViewCell
 
+    /// Wraps a concrete `CellViewModel` value in a type-erased container.
     public init<T: CellViewModel>(_ item: T) {
         _typeID = ObjectIdentifier(T.self)
         _cachedHash = item.hashValue
