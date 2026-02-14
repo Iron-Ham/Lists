@@ -6,8 +6,7 @@ import UIKit
 /// 1. CellViewModels rendering SwiftUI views via UIHostingConfiguration
 /// 2. UIViewControllerRepresentable / UIViewRepresentable wrappers for embedding Lists in SwiftUI
 final class SwiftUIExampleViewController: UIViewController {
-    struct ContactItem: CellViewModel, Identifiable {
-        typealias Cell = UICollectionViewListCell
+    struct ContactItem: SwiftUICellViewModel, Identifiable {
         let id: UUID
         let name: String
         let role: String
@@ -26,11 +25,12 @@ final class SwiftUIExampleViewController: UIViewController {
             self.avatarColor = avatarColor
         }
 
-        @MainActor func configure(_ cell: UICollectionViewListCell) {
-            cell.contentConfiguration = UIHostingConfiguration {
-                ContactRow(name: name, role: role, status: status, avatarColor: avatarColor)
-            }
-            cell.accessories = [.disclosureIndicator()]
+        var body: some View {
+            ContactRow(name: name, role: role, status: status, avatarColor: avatarColor)
+        }
+
+        var accessories: [UICellAccessory] {
+            [.disclosureIndicator()]
         }
     }
 
@@ -187,115 +187,4 @@ struct SwiftUIExampleView: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_: SwiftUIExampleViewController, context _: Context) {}
-}
-
-/// Generic UIViewRepresentable that wraps a SimpleList's collection view.
-/// This shows how to expose any Lists component directly as a SwiftUI View.
-///
-/// Usage:
-/// ```swift
-/// struct MyApp: View {
-///     @State var items = [MyItem(...), ...]
-///
-///     var body: some View {
-///         SimpleListView(items: items, appearance: .plain) { item in
-///             print("Selected: \(item)")
-///         }
-///     }
-/// }
-/// ```
-@MainActor
-struct SimpleListView<Item: CellViewModel>: UIViewRepresentable {
-    let items: [Item]
-    let appearance: UICollectionLayoutListConfiguration.Appearance
-    var onSelect: (@MainActor (Item) -> Void)?
-
-    init(
-        items: [Item],
-        appearance: UICollectionLayoutListConfiguration.Appearance = .plain,
-        onSelect: (@MainActor (Item) -> Void)? = nil
-    ) {
-        self.items = items
-        self.appearance = appearance
-        self.onSelect = onSelect
-    }
-
-    func makeUIView(context: Context) -> UICollectionView {
-        let list = SimpleList<Item>(appearance: appearance)
-        list.onSelect = onSelect
-        context.coordinator.list = list
-        Task {
-            await list.setItems(items, animatingDifferences: false)
-        }
-        return list.collectionView
-    }
-
-    func updateUIView(_: UICollectionView, context: Context) {
-        guard let list = context.coordinator.list else { return }
-        list.onSelect = onSelect
-        Task {
-            await list.setItems(items)
-        }
-    }
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator()
-    }
-
-    @MainActor
-    final class Coordinator {
-        var list: SimpleList<Item>?
-    }
-}
-
-/// Generic UIViewRepresentable that wraps a GroupedList's collection view.
-///
-/// Usage:
-/// ```swift
-/// GroupedListView(sections: [
-///     SectionModel(id: "header", items: items, header: "Title", footer: "Subtitle")
-/// ])
-/// ```
-@MainActor
-struct GroupedListView<SectionID: Hashable & Sendable, Item: CellViewModel>: UIViewRepresentable {
-    let sections: [SectionModel<SectionID, Item>]
-    let appearance: UICollectionLayoutListConfiguration.Appearance
-    var onSelect: (@MainActor (Item) -> Void)?
-
-    init(
-        sections: [SectionModel<SectionID, Item>],
-        appearance: UICollectionLayoutListConfiguration.Appearance = .insetGrouped,
-        onSelect: (@MainActor (Item) -> Void)? = nil
-    ) {
-        self.sections = sections
-        self.appearance = appearance
-        self.onSelect = onSelect
-    }
-
-    func makeUIView(context: Context) -> UICollectionView {
-        let list = GroupedList<SectionID, Item>(appearance: appearance)
-        list.onSelect = onSelect
-        context.coordinator.list = list
-        Task {
-            await list.setSections(sections, animatingDifferences: false)
-        }
-        return list.collectionView
-    }
-
-    func updateUIView(_: UICollectionView, context: Context) {
-        guard let list = context.coordinator.list else { return }
-        list.onSelect = onSelect
-        Task {
-            await list.setSections(sections)
-        }
-    }
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator()
-    }
-
-    @MainActor
-    final class Coordinator {
-        var list: GroupedList<SectionID, Item>?
-    }
 }

@@ -7,6 +7,7 @@ public final class GroupedList<SectionID: Hashable & Sendable, Item: CellViewMod
     private let dataSource: ListDataSource<SectionID, Item>
     private var sectionHeaders: [SectionID: String] = [:]
     private var sectionFooters: [SectionID: String] = [:]
+    private var applyTask: Task<Void, Never>?
 
     public var onSelect: (@MainActor (Item) -> Void)?
 
@@ -24,17 +25,23 @@ public final class GroupedList<SectionID: Hashable & Sendable, Item: CellViewMod
     }
 
     public func setSections(_ sections: [SectionModel<SectionID, Item>], animatingDifferences: Bool = true) async {
-        sectionHeaders.removeAll()
-        sectionFooters.removeAll()
-        for section in sections {
-            if let header = section.header {
-                sectionHeaders[section.id] = header
+        let previousTask = applyTask
+        let task = Task { @MainActor in
+            _ = await previousTask?.value
+            self.sectionHeaders.removeAll()
+            self.sectionFooters.removeAll()
+            for section in sections {
+                if let header = section.header {
+                    self.sectionHeaders[section.id] = header
+                }
+                if let footer = section.footer {
+                    self.sectionFooters[section.id] = footer
+                }
             }
-            if let footer = section.footer {
-                sectionFooters[section.id] = footer
-            }
+            await self.dataSource.apply(sections, animatingDifferences: animatingDifferences)
         }
-        await dataSource.apply(sections, animatingDifferences: animatingDifferences)
+        applyTask = task
+        await task.value
     }
 
     public func snapshot() -> DiffableDataSourceSnapshot<SectionID, Item> {

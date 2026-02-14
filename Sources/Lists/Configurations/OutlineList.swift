@@ -1,7 +1,7 @@
 import ListKit
 import UIKit
 
-public struct OutlineItem<Item: CellViewModel>: Sendable {
+public struct OutlineItem<Item: CellViewModel>: Sendable, Equatable {
     public let item: Item
     public let children: [OutlineItem<Item>]
     public let isExpanded: Bool
