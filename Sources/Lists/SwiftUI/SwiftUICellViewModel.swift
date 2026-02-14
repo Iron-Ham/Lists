@@ -12,16 +12,16 @@ import UIKit
 public protocol SwiftUICellViewModel: CellViewModel where Cell == UICollectionViewListCell {
     associatedtype Content: View
     @MainActor var body: Content { get }
-    @MainActor var accessories: [UICellAccessory] { get }
+    @MainActor var accessories: [ListAccessory] { get }
 }
 
 public extension SwiftUICellViewModel {
-    @MainActor var accessories: [UICellAccessory] {
+    @MainActor var accessories: [ListAccessory] {
         []
     }
 
     @MainActor func configure(_ cell: UICollectionViewListCell) {
         cell.contentConfiguration = UIHostingConfiguration { body }
-        cell.accessories = accessories
+        cell.accessories = accessories.map(\.uiAccessory)
     }
 }

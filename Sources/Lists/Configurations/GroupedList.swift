@@ -5,16 +5,28 @@ import UIKit
 public final class GroupedList<SectionID: Hashable & Sendable, Item: CellViewModel>: NSObject, UICollectionViewDelegate {
     public let collectionView: UICollectionView
     private let dataSource: ListDataSource<SectionID, Item>
+    private let bridge: SwipeActionBridge<SectionID, Item>
     private var sectionHeaders: [SectionID: String] = [:]
     private var sectionFooters: [SectionID: String] = [:]
     private var applyTask: Task<Void, Never>?
 
     public var onSelect: (@MainActor (Item) -> Void)?
 
+    /// Closure that returns trailing swipe actions for a given item.
+    public var trailingSwipeActionsProvider: (@MainActor (Item) -> UISwipeActionsConfiguration?)?
+    /// Closure that returns leading swipe actions for a given item.
+    public var leadingSwipeActionsProvider: (@MainActor (Item) -> UISwipeActionsConfiguration?)?
+    /// Closure that returns a context menu configuration for a given item.
+    public var contextMenuProvider: (@MainActor (Item) -> UIContextMenuConfiguration?)?
+
     public init(appearance: UICollectionLayoutListConfiguration.Appearance = .insetGrouped) {
+        let bridge = SwipeActionBridge<SectionID, Item>()
+        self.bridge = bridge
+
         var config = UICollectionLayoutListConfiguration(appearance: appearance)
         config.headerMode = .supplementary
         config.footerMode = .supplementary
+        bridge.configureSwipeActions(on: &config)
         let layout = UICollectionViewCompositionalLayout.list(using: config)
 
         collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
@@ -22,22 +34,29 @@ public final class GroupedList<SectionID: Hashable & Sendable, Item: CellViewMod
         super.init()
         collectionView.delegate = self
         setupSupplementaryViews()
+
+        bridge.dataSource = dataSource
+        bridge.trailingProvider = { [weak self] item in self?.trailingSwipeActionsProvider?(item) }
+        bridge.leadingProvider = { [weak self] item in self?.leadingSwipeActionsProvider?(item) }
     }
 
     public func setSections(_ sections: [SectionModel<SectionID, Item>], animatingDifferences: Bool = true) async {
         let previousTask = applyTask
         let task = Task { @MainActor in
             _ = await previousTask?.value
-            self.sectionHeaders.removeAll()
-            self.sectionFooters.removeAll()
+            guard !Task.isCancelled else { return }
+            var newHeaders: [SectionID: String] = [:]
+            var newFooters: [SectionID: String] = [:]
             for section in sections {
                 if let header = section.header {
-                    self.sectionHeaders[section.id] = header
+                    newHeaders[section.id] = header
                 }
                 if let footer = section.footer {
-                    self.sectionFooters[section.id] = footer
+                    newFooters[section.id] = footer
                 }
             }
+            self.sectionHeaders = newHeaders
+            self.sectionFooters = newFooters
             await self.dataSource.apply(sections, animatingDifferences: animatingDifferences)
         }
         applyTask = task
@@ -52,8 +71,20 @@ public final class GroupedList<SectionID: Hashable & Sendable, Item: CellViewMod
 
     public func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         collectionView.deselectItem(at: indexPath, animated: true)
-        guard let item = dataSource.itemIdentifier(for: indexPath) else { return }
+        guard let item = dataSource.itemIdentifier(for: indexPath) else {
+            assertionFailure("Item not found for indexPath \(indexPath)")
+            return
+        }
         onSelect?(item)
+    }
+
+    public func collectionView(
+        _: UICollectionView,
+        contextMenuConfigurationForItemAt indexPath: IndexPath,
+        point _: CGPoint
+    ) -> UIContextMenuConfiguration? {
+        guard let item = dataSource.itemIdentifier(for: indexPath) else { return nil }
+        return contextMenuProvider?(item)
     }
 
     // MARK: - Private
@@ -64,7 +95,9 @@ public final class GroupedList<SectionID: Hashable & Sendable, Item: CellViewMod
         ) { [weak self] supplementaryView, _, indexPath in
             guard let self else { return }
             let snapshot = dataSource.snapshot()
-            let sectionID = snapshot.sectionIdentifiers[indexPath.section]
+            let sectionIdentifiers = snapshot.sectionIdentifiers
+            guard indexPath.section < sectionIdentifiers.count else { return }
+            let sectionID = sectionIdentifiers[indexPath.section]
             var content = UIListContentConfiguration.groupedHeader()
             content.text = sectionHeaders[sectionID]
             supplementaryView.contentConfiguration = content
@@ -75,7 +108,9 @@ public final class GroupedList<SectionID: Hashable & Sendable, Item: CellViewMod
         ) { [weak self] supplementaryView, _, indexPath in
             guard let self else { return }
             let snapshot = dataSource.snapshot()
-            let sectionID = snapshot.sectionIdentifiers[indexPath.section]
+            let sectionIdentifiers = snapshot.sectionIdentifiers
+            guard indexPath.section < sectionIdentifiers.count else { return }
+            let sectionID = sectionIdentifiers[indexPath.section]
             var content = UIListContentConfiguration.groupedFooter()
             content.text = sectionFooters[sectionID]
             supplementaryView.contentConfiguration = content
