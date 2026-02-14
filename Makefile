@@ -84,6 +84,8 @@ install:
 	fi
 
 generate:
+	@echo "Resolving dependencies..."
+	tuist install
 	@echo "Generating Xcode project..."
 	tuist generate --no-open
 
@@ -175,10 +177,10 @@ benchmark:
 # =============================================================================
 
 lint:
-	swiftformat --lint Sources/ Tests/ Example/
+	swiftformat --lint Sources/ Tests/ Example/ Project.swift
 
 format:
-	swiftformat Sources/ Tests/ Example/
+	swiftformat Sources/ Tests/ Example/ Project.swift
 
 # =============================================================================
 # Maintenance
