@@ -84,6 +84,8 @@ install:
 	fi
 
 generate:
+	@echo "Resolving dependencies..."
+	tuist install
 	@echo "Generating Xcode project..."
 	tuist generate --no-open
 
@@ -175,10 +177,10 @@ benchmark:
 # =============================================================================
 
 lint:
-	swiftformat --lint Sources/ Tests/ Example/
+	swiftformat --lint Sources/ Tests/ Example/ Project.swift
 
 format:
-	swiftformat Sources/ Tests/ Example/
+	swiftformat Sources/ Tests/ Example/ Project.swift
 
 # =============================================================================
 # Maintenance
@@ -228,6 +230,10 @@ docs:
 		if [ -n "$$LISTKIT" ]; then \
 			cp -R "$$LISTKIT"/data/documentation/listkit* docs/data/documentation/ 2>/dev/null || true; \
 			cp -R "$$LISTKIT"/data/documentation/listkit.json docs/data/documentation/ 2>/dev/null || true; \
+		fi
+	@LISTKIT=$$(find $(DERIVED_DATA) -name 'ListKit.doccarchive' | head -1) && \
+		if [ -n "$$LISTKIT" ]; then \
+			python3 scripts/merge-docs-index.py "$$LISTKIT" docs; \
 		fi
 	@cp docs/index.html docs/404.html
 	@cp docs/index.html docs/documentation/index.html

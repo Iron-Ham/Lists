@@ -7,41 +7,49 @@ import UIKit
 /// `GroupedListView`, and `OutlineListView`. `Hashable`/`Equatable` is based on `data`
 /// and `accessories` — the content closure is not compared.
 public struct InlineCellViewModel<Data: Hashable & Sendable>: CellViewModel, Identifiable {
-    public typealias Cell = UICollectionViewListCell
 
-    public let data: Data
+  // MARK: Lifecycle
 
-    public var id: Data {
-        data
+  public init(
+    data: Data,
+    accessories: [ListAccessory] = [],
+    @ViewBuilder content: @escaping @MainActor (Data) -> some View
+  ) {
+    self.data = data
+    self.accessories = accessories
+    self.content = { data in AnyView(content(data)) }
+  }
+
+  // MARK: Public
+
+  public typealias Cell = UICollectionViewListCell
+
+  public let data: Data
+
+  public var id: Data {
+    data
+  }
+
+  public static func ==(lhs: InlineCellViewModel, rhs: InlineCellViewModel) -> Bool {
+    lhs.data == rhs.data && lhs.accessories == rhs.accessories
+  }
+
+  @MainActor
+  public func configure(_ cell: UICollectionViewListCell) {
+    cell.contentConfiguration = UIHostingConfiguration {
+      content(data)
     }
+    cell.accessories = accessories.map(\.uiAccessory)
+  }
 
-    private let content: @MainActor (Data) -> AnyView
-    private let accessories: [ListAccessory]
+  public func hash(into hasher: inout Hasher) {
+    hasher.combine(data)
+    hasher.combine(accessories)
+  }
 
-    public init(
-        data: Data,
-        accessories: [ListAccessory] = [],
-        @ViewBuilder content: @escaping @MainActor (Data) -> some View
-    ) {
-        self.data = data
-        self.accessories = accessories
-        self.content = { data in AnyView(content(data)) }
-    }
+  // MARK: Private
 
-    @MainActor
-    public func configure(_ cell: UICollectionViewListCell) {
-        cell.contentConfiguration = UIHostingConfiguration {
-            content(data)
-        }
-        cell.accessories = accessories.map(\.uiAccessory)
-    }
+  private let content: @MainActor (Data) -> AnyView
+  private let accessories: [ListAccessory]
 
-    public static func == (lhs: InlineCellViewModel, rhs: InlineCellViewModel) -> Bool {
-        lhs.data == rhs.data && lhs.accessories == rhs.accessories
-    }
-
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(data)
-        hasher.combine(accessories)
-    }
 }
