@@ -9,6 +9,8 @@ A fast, pure-Swift diffable data source for `UICollectionView`. Drop-in replacem
 | **ListKit** | Low-level diffing engine and data source. API-compatible with Apple's `NSDiffableDataSourceSnapshot`. |
 | **Lists** | High-level, ViewModel-driven layer with result-builder DSL, automatic cell registration, pre-built list configurations, and SwiftUI wrappers. |
 
+**[Documentation](https://iron-ham.github.io/Lists/documentation)**
+
 ## Requirements
 
 - iOS 17.0+
