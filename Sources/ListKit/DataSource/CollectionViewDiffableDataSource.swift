@@ -42,6 +42,15 @@ public final class CollectionViewDiffableDataSource<
   /// An optional closure for providing supplementary views (headers, footers).
   public var supplementaryViewProvider: SupplementaryViewProvider?
 
+  /// Optional closure to determine whether a specific item can be reordered.
+  /// Return `true` to allow the item at the given index path to be moved.
+  public var canMoveItemHandler: (@MainActor (IndexPath) -> Bool)?
+
+  /// Optional closure called after the user finishes reordering an item via drag-and-drop.
+  /// The data source updates its internal snapshot automatically; use this closure to
+  /// persist the new order in your model layer.
+  public var didMoveItemHandler: (@MainActor (IndexPath, IndexPath) -> Void)?
+
   /// Primary apply — async with animated differences.
   /// Serialized: concurrent calls are queued and executed in order.
   /// Supports cooperative cancellation — cancelled tasks skip the apply.
@@ -168,6 +177,33 @@ public final class CollectionViewDiffableDataSource<
       return UICollectionViewCell()
     }
     return cell
+  }
+
+  public func collectionView(_: UICollectionView, canMoveItemAt indexPath: IndexPath) -> Bool {
+    canMoveItemHandler?(indexPath) ?? false
+  }
+
+  public func collectionView(
+    _: UICollectionView,
+    moveItemAt sourceIndexPath: IndexPath,
+    to destinationIndexPath: IndexPath
+  ) {
+    guard let item = itemIdentifier(for: sourceIndexPath) else { return }
+
+    // Remove the item from its current position in the snapshot
+    currentSnapshot.deleteItems([item])
+
+    // Insert at the destination
+    let destSectionID = currentSnapshot.sectionIdentifiers[destinationIndexPath.section]
+    let destItems = currentSnapshot.itemIdentifiers(inSection: destSectionID)
+
+    if destinationIndexPath.item < destItems.count {
+      currentSnapshot.insertItems([item], beforeItem: destItems[destinationIndexPath.item])
+    } else {
+      currentSnapshot.appendItems([item], toSection: destSectionID)
+    }
+
+    didMoveItemHandler?(sourceIndexPath, destinationIndexPath)
   }
 
   public func collectionView(

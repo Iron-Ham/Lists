@@ -32,6 +32,18 @@ public final class ListDataSource<SectionID: Hashable & Sendable, Item: CellView
     set { dataSource.supplementaryViewProvider = newValue }
   }
 
+  /// Optional closure to determine whether a specific item can be reordered.
+  public var canMoveItemHandler: (@MainActor (IndexPath) -> Bool)? {
+    get { dataSource.canMoveItemHandler }
+    set { dataSource.canMoveItemHandler = newValue }
+  }
+
+  /// Optional closure called after the user finishes reordering an item.
+  public var didMoveItemHandler: (@MainActor (IndexPath, IndexPath) -> Void)? {
+    get { dataSource.didMoveItemHandler }
+    set { dataSource.didMoveItemHandler = newValue }
+  }
+
   /// Applies the given snapshot, computing and animating the minimal diff.
   public func apply(_ snapshot: Snapshot, animatingDifferences: Bool = true) async {
     await dataSource.apply(snapshot, animatingDifferences: animatingDifferences)

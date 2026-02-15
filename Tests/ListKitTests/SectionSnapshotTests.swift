@@ -122,6 +122,87 @@ struct SectionSnapshotTests {
   }
 
   @Test
+  func subSnapshotOfNestedChildHasCorrectParentMap() {
+    // Tree: Root > A > A1 > A1a
+    var snapshot = DiffableDataSourceSectionSnapshot<String>()
+    snapshot.append(["Root"])
+    snapshot.append(["A"], to: "Root")
+    snapshot.append(["A1"], to: "A")
+    snapshot.append(["A1a"], to: "A1")
+    snapshot.expand(["Root", "A", "A1"])
+
+    // Extract subtree rooted at "A" (including "A" as root of new snapshot)
+    let sub = snapshot.snapshot(of: "A", includingParent: true)
+
+    // "A" should be a root in the sub-snapshot (no dangling reference to "Root")
+    #expect(sub.parent(of: "A") == nil)
+    #expect(sub.rootItems == ["A"])
+    #expect(sub.level(of: "A") == 0)
+    #expect(sub.level(of: "A1") == 1)
+    #expect(sub.level(of: "A1a") == 2)
+
+    // Hierarchy should be preserved within the subtree
+    #expect(sub.parent(of: "A1") == "A")
+    #expect(sub.parent(of: "A1a") == "A1")
+
+    // Items outside the subtree should not be present
+    #expect(sub.contains("Root") == false)
+  }
+
+  @Test
+  func subSnapshotExcludingParentHasCorrectRoots() {
+    var snapshot = DiffableDataSourceSectionSnapshot<String>()
+    snapshot.append(["Root"])
+    snapshot.append(["A", "B"], to: "Root")
+    snapshot.append(["A1"], to: "A")
+    snapshot.expand(["Root", "A"])
+
+    // Extract children of "Root" without "Root" itself
+    let sub = snapshot.snapshot(of: "Root", includingParent: false)
+    #expect(sub.contains("Root") == false)
+    #expect(sub.contains("A"))
+    #expect(sub.contains("B"))
+    #expect(sub.contains("A1"))
+    // A and B should be roots in the sub-snapshot since Root is excluded
+    #expect(sub.parent(of: "A") == nil)
+    #expect(sub.parent(of: "B") == nil)
+    #expect(sub.parent(of: "A1") == "A")
+  }
+
+  @Test
+  func subSnapshotPreservesExpansionState() {
+    var snapshot = DiffableDataSourceSectionSnapshot<String>()
+    snapshot.append(["A"])
+    snapshot.append(["A1"], to: "A")
+    snapshot.append(["A1a"], to: "A1")
+    snapshot.expand(["A"])
+    // A1 is NOT expanded
+
+    let sub = snapshot.snapshot(of: "A", includingParent: true)
+    #expect(sub.isExpanded("A") == true)
+    #expect(sub.isExpanded("A1") == false)
+    // A1a is not visible because A1 is collapsed
+    #expect(sub.visibleItems == ["A", "A1"])
+  }
+
+  @Test
+  func subSnapshotDoesNotIncludeOutOfTreeChildren() {
+    // Children map should be filtered to only items in the sub-snapshot
+    var snapshot = DiffableDataSourceSectionSnapshot<String>()
+    snapshot.append(["Root"])
+    snapshot.append(["A", "B"], to: "Root")
+    snapshot.append(["A1"], to: "A")
+    snapshot.append(["B1"], to: "B")
+
+    let sub = snapshot.snapshot(of: "A", includingParent: true)
+    #expect(sub.contains("A"))
+    #expect(sub.contains("A1"))
+    #expect(!sub.contains("B"))
+    #expect(!sub.contains("B1"))
+    #expect(!sub.contains("Root"))
+  }
+
+  @Test
   func sendableConformance() {
     let snapshot = DiffableDataSourceSectionSnapshot<String>()
     let _: any Sendable = snapshot

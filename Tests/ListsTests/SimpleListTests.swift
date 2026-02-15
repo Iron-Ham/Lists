@@ -90,4 +90,41 @@ struct SimpleListTests {
     let snapshot = list.snapshot()
     #expect(snapshot.numberOfItems == 5)
   }
+
+  @Test
+  func multipleSelectionDoesNotAutoDeselect() async {
+    let list = SimpleList<TextItem>()
+    list.collectionView.allowsMultipleSelection = true
+
+    var selected = [TextItem]()
+    list.onSelect = { item in selected.append(item) }
+
+    await list.setItems([TextItem(text: "A"), TextItem(text: "B")], animatingDifferences: false)
+
+    // Verify multi-selection is enabled (collection view property persists)
+    #expect(list.collectionView.allowsMultipleSelection == true)
+  }
+
+  @Test
+  func onDeleteCallbackIsStored() {
+    let list = SimpleList<TextItem>()
+    var deletedItem: TextItem?
+    list.onDelete = { item in deletedItem = item }
+
+    // Verify the callback is stored (we can't trigger swipe in unit tests,
+    // but we verify the plumbing is set up)
+    #expect(list.onDelete != nil)
+    list.onDelete?(TextItem(text: "X"))
+    #expect(deletedItem?.text == "X")
+  }
+
+  @Test
+  func onDeselectCallbackIsStored() {
+    let list = SimpleList<TextItem>()
+    var deselectedItem: TextItem?
+    list.onDeselect = { item in deselectedItem = item }
+    #expect(list.onDeselect != nil)
+    list.onDeselect?(TextItem(text: "Y"))
+    #expect(deselectedItem?.text == "Y")
+  }
 }

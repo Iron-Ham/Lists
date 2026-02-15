@@ -18,13 +18,17 @@ public final class GroupedList<SectionID: Hashable & Sendable, Item: CellViewMod
   // MARK: Lifecycle
 
   /// Creates a grouped list with the specified list appearance.
-  public init(appearance: UICollectionLayoutListConfiguration.Appearance = .insetGrouped) {
+  public init(
+    appearance: UICollectionLayoutListConfiguration.Appearance = .insetGrouped,
+    showsSeparators: Bool = true
+  ) {
     let bridge = SwipeActionBridge<SectionID, Item>()
     self.bridge = bridge
 
     var config = UICollectionLayoutListConfiguration(appearance: appearance)
     config.headerMode = .supplementary
     config.footerMode = .supplementary
+    config.showsSeparators = showsSeparators
     bridge.configureSwipeActions(on: &config)
     let layout = UICollectionViewCompositionalLayout.list(using: config)
 
@@ -35,7 +39,18 @@ public final class GroupedList<SectionID: Hashable & Sendable, Item: CellViewMod
     setupSupplementaryViews()
 
     bridge.dataSource = dataSource
-    bridge.trailingProvider = { [weak self] item in self?.trailingSwipeActionsProvider?(item) }
+    bridge.trailingProvider = { [weak self] item in
+      guard let self else { return nil }
+      if let config = trailingSwipeActionsProvider?(item) {
+        return config
+      }
+      guard let onDelete else { return nil }
+      let action = UIContextualAction(style: .destructive, title: String(localized: "Delete")) { _, _, completion in
+        onDelete(item)
+        completion(true)
+      }
+      return UISwipeActionsConfiguration(actions: [action])
+    }
     bridge.leadingProvider = { [weak self] item in self?.leadingSwipeActionsProvider?(item) }
   }
 
@@ -45,6 +60,12 @@ public final class GroupedList<SectionID: Hashable & Sendable, Item: CellViewMod
   public let collectionView: UICollectionView
   /// Called when the user taps an item.
   public var onSelect: (@MainActor (Item) -> Void)?
+  /// Called when the user deselects an item (relevant when `allowsMultipleSelection` is enabled).
+  public var onDeselect: (@MainActor (Item) -> Void)?
+
+  /// Called when the user swipe-deletes an item. When set and ``trailingSwipeActionsProvider``
+  /// is `nil`, a trailing destructive "Delete" swipe action is provided automatically.
+  public var onDelete: (@MainActor (Item) -> Void)?
 
   /// Closure that returns trailing swipe actions for a given item.
   public var trailingSwipeActionsProvider: (@MainActor (Item) -> UISwipeActionsConfiguration?)?
@@ -52,6 +73,13 @@ public final class GroupedList<SectionID: Hashable & Sendable, Item: CellViewMod
   public var leadingSwipeActionsProvider: (@MainActor (Item) -> UISwipeActionsConfiguration?)?
   /// Closure that returns a context menu configuration for a given item.
   public var contextMenuProvider: (@MainActor (Item) -> UIContextMenuConfiguration?)?
+
+  /// Called when the user reorders an item via drag-and-drop.
+  /// The list updates its internal snapshot automatically; use this to persist the new order.
+  /// Setting this enables the reorder interaction on the collection view.
+  public var onMove: (@MainActor (_ source: IndexPath, _ destination: IndexPath) -> Void)? {
+    didSet { configureReorderIfNeeded() }
+  }
 
   /// Replaces all sections, computing and animating the diff.
   ///
@@ -95,12 +123,19 @@ public final class GroupedList<SectionID: Hashable & Sendable, Item: CellViewMod
   }
 
   public func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-    collectionView.deselectItem(at: indexPath, animated: true)
+    if !collectionView.allowsMultipleSelection {
+      collectionView.deselectItem(at: indexPath, animated: true)
+    }
     guard let item = dataSource.itemIdentifier(for: indexPath) else {
       assertionFailure("Item not found for indexPath \(indexPath)")
       return
     }
     onSelect?(item)
+  }
+
+  public func collectionView(_: UICollectionView, didDeselectItemAt indexPath: IndexPath) {
+    guard let item = dataSource.itemIdentifier(for: indexPath) else { return }
+    onDeselect?(item)
   }
 
   public func collectionView(
@@ -119,6 +154,20 @@ public final class GroupedList<SectionID: Hashable & Sendable, Item: CellViewMod
   private var sectionHeaders = [SectionID: String]()
   private var sectionFooters = [SectionID: String]()
   private var applyTask: Task<Void, Never>?
+
+  private func configureReorderIfNeeded() {
+    if onMove != nil {
+      collectionView.dragInteractionEnabled = true
+      dataSource.canMoveItemHandler = { _ in true }
+      dataSource.didMoveItemHandler = { [weak self] source, dest in
+        self?.onMove?(source, dest)
+      }
+    } else {
+      collectionView.dragInteractionEnabled = false
+      dataSource.canMoveItemHandler = nil
+      dataSource.didMoveItemHandler = nil
+    }
+  }
 
   private func setupSupplementaryViews() {
     let headerRegistration = UICollectionView.SupplementaryRegistration<UICollectionViewListCell>(

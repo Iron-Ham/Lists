@@ -2,6 +2,9 @@
 
 /// Implementation of Paul Heckel's 6-pass O(n) diff algorithm for flat arrays.
 enum HeckelDiff {
+
+  // MARK: Internal
+
   /// Tracks occurrence count of a symbol.
   enum Counter {
     case zero
@@ -139,8 +142,6 @@ enum HeckelDiff {
     deletes.reserveCapacity(old.count)
     var inserts = [Int]()
     inserts.reserveCapacity(new.count)
-    var moves = [(from: Int, to: Int)]()
-    moves.reserveCapacity(min(old.count, new.count))
     var matched = [(old: Int, new: Int)]()
     matched.reserveCapacity(min(old.count, new.count))
 
@@ -156,11 +157,14 @@ enum HeckelDiff {
         inserts.append(newIdx)
       case .indexInOther(let oldIdx):
         matched.append((old: oldIdx, new: newIdx))
-        if oldIdx != newIdx {
-          moves.append((from: oldIdx, to: newIdx))
-        }
       }
     }
+
+    // Compute minimal moves using LIS.
+    // Only elements whose relative order changed among surviving items need
+    // explicit moves — positional shifts from deletes/inserts are handled
+    // automatically by UICollectionView's batch update system.
+    let moves = minimalMoves(from: matched)
 
     return DiffResult(
       deletes: deletes,
@@ -168,5 +172,77 @@ enum HeckelDiff {
       moves: moves,
       matched: matched
     )
+  }
+
+  // MARK: Private
+
+  /// Computes the minimal set of moves needed to reorder matched elements.
+  ///
+  /// Given matched pairs sorted by new index, finds the Longest Increasing
+  /// Subsequence (LIS) of old indices. Elements in the LIS are already in
+  /// correct relative order and don't need explicit moves. Elements outside
+  /// the LIS must be moved to achieve the desired ordering.
+  private static func minimalMoves(from matched: [(old: Int, new: Int)]) -> [(from: Int, to: Int)] {
+    guard matched.count > 1 else { return [] }
+
+    let oldIndices = matched.map(\.old)
+    let stablePositions = lisPositions(oldIndices)
+
+    var moves = [(from: Int, to: Int)]()
+    for (pos, pair) in matched.enumerated() {
+      if !stablePositions.contains(pos) {
+        moves.append((from: pair.old, to: pair.new))
+      }
+    }
+    return moves
+  }
+
+  /// Returns the set of positions in `values` that form a longest increasing
+  /// subsequence, using patience-sorting in O(n log n) time.
+  private static func lisPositions(_ values: [Int]) -> Set<Int> {
+    let n = values.count
+    guard n > 0 else { return [] }
+
+    // tailIndices[i] = position in `values` whose value is the smallest tail
+    // of any increasing subsequence of length i+1 found so far.
+    var tailIndices = ContiguousArray<Int>()
+    tailIndices.reserveCapacity(n)
+
+    // predecessor[i] = position of the element before `values[i]` in its LIS chain.
+    var predecessor = ContiguousArray<Int>(repeating: -1, count: n)
+
+    for i in 0 ..< n {
+      let val = values[i]
+
+      // Binary search: find leftmost slot where the tail value >= val
+      var lo = 0
+      var hi = tailIndices.count
+      while lo < hi {
+        let mid = lo + (hi - lo) / 2
+        if values[tailIndices[mid]] < val {
+          lo = mid + 1
+        } else {
+          hi = mid
+        }
+      }
+
+      if lo > 0 {
+        predecessor[i] = tailIndices[lo - 1]
+      }
+      if lo == tailIndices.count {
+        tailIndices.append(i)
+      } else {
+        tailIndices[lo] = i
+      }
+    }
+
+    // Reconstruct: walk the predecessor chain from the last LIS element.
+    var result = Set<Int>(minimumCapacity: tailIndices.count)
+    var idx = tailIndices[tailIndices.count - 1]
+    while idx >= 0 {
+      result.insert(idx)
+      idx = predecessor[idx]
+    }
+    return result
   }
 }

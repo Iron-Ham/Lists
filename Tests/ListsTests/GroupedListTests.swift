@@ -107,4 +107,26 @@ struct GroupedListTests {
     #expect(list.snapshot().numberOfSections == 0)
     #expect(list.snapshot().numberOfItems == 0)
   }
+
+  @Test
+  func sectionModelAcceptsNonCellViewModelItems() {
+    // SectionModel should accept any Hashable & Sendable type, not just CellViewModel.
+    // This enables the inline-content convenience initializers on GroupedListView.
+    let section = SectionModel(id: "test", items: ["Hello", "World"], header: "Strings")
+    #expect(section.id == "test")
+    #expect(section.items == ["Hello", "World"])
+    #expect(section.header == "Strings")
+
+    let intSection = SectionModel(id: 0, items: [1, 2, 3])
+    #expect(intSection.items.count == 3)
+  }
+
+  @Test
+  func onDeleteCallbackIsStored() {
+    let list = GroupedList<String, TextItem>()
+    var deletedItem: TextItem?
+    list.onDelete = { item in deletedItem = item }
+    list.onDelete?(TextItem(text: "Z"))
+    #expect(deletedItem?.text == "Z")
+  }
 }

@@ -58,11 +58,15 @@ public final class OutlineList<Item: CellViewModel>: NSObject, UICollectionViewD
   // MARK: Lifecycle
 
   /// Creates an outline list with the specified list appearance.
-  public init(appearance: UICollectionLayoutListConfiguration.Appearance = .sidebar) {
+  public init(
+    appearance: UICollectionLayoutListConfiguration.Appearance = .sidebar,
+    showsSeparators: Bool = true
+  ) {
     let bridge = SwipeActionBridge<Int, Item>()
     self.bridge = bridge
 
     var config = UICollectionLayoutListConfiguration(appearance: appearance)
+    config.showsSeparators = showsSeparators
     bridge.configureSwipeActions(on: &config)
     let layout = UICollectionViewCompositionalLayout.list(using: config)
 
@@ -72,7 +76,18 @@ public final class OutlineList<Item: CellViewModel>: NSObject, UICollectionViewD
     collectionView.delegate = self
 
     bridge.dataSource = dataSource
-    bridge.trailingProvider = { [weak self] item in self?.trailingSwipeActionsProvider?(item) }
+    bridge.trailingProvider = { [weak self] item in
+      guard let self else { return nil }
+      if let config = trailingSwipeActionsProvider?(item) {
+        return config
+      }
+      guard let onDelete else { return nil }
+      let action = UIContextualAction(style: .destructive, title: String(localized: "Delete")) { _, _, completion in
+        onDelete(item)
+        completion(true)
+      }
+      return UISwipeActionsConfiguration(actions: [action])
+    }
     bridge.leadingProvider = { [weak self] item in self?.leadingSwipeActionsProvider?(item) }
   }
 
@@ -82,6 +97,12 @@ public final class OutlineList<Item: CellViewModel>: NSObject, UICollectionViewD
   public let collectionView: UICollectionView
   /// Called when the user taps an item.
   public var onSelect: (@MainActor (Item) -> Void)?
+  /// Called when the user deselects an item (relevant when `allowsMultipleSelection` is enabled).
+  public var onDeselect: (@MainActor (Item) -> Void)?
+
+  /// Called when the user swipe-deletes an item. When set and ``trailingSwipeActionsProvider``
+  /// is `nil`, a trailing destructive "Delete" swipe action is provided automatically.
+  public var onDelete: (@MainActor (Item) -> Void)?
 
   /// Closure that returns trailing swipe actions for a given item.
   public var trailingSwipeActionsProvider: (@MainActor (Item) -> UISwipeActionsConfiguration?)?
@@ -134,12 +155,19 @@ public final class OutlineList<Item: CellViewModel>: NSObject, UICollectionViewD
   }
 
   public func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-    collectionView.deselectItem(at: indexPath, animated: true)
+    if !collectionView.allowsMultipleSelection {
+      collectionView.deselectItem(at: indexPath, animated: true)
+    }
     guard let item = dataSource.itemIdentifier(for: indexPath) else {
       assertionFailure("Item not found for indexPath \(indexPath)")
       return
     }
     onSelect?(item)
+  }
+
+  public func collectionView(_: UICollectionView, didDeselectItemAt indexPath: IndexPath) {
+    guard let item = dataSource.itemIdentifier(for: indexPath) else { return }
+    onDeselect?(item)
   }
 
   public func collectionView(
