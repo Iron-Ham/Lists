@@ -203,6 +203,29 @@ struct SectionSnapshotTests {
   }
 
   @Test
+  func deleteParentLeavesNoOrphanedReferences() {
+    // Delete a parent and verify that children are also removed,
+    // and no dangling parent references remain.
+    var snapshot = DiffableDataSourceSectionSnapshot<String>()
+    snapshot.append(["A", "B"])
+    snapshot.append(["A1", "A2"], to: "A")
+    snapshot.append(["A1a"], to: "A1")
+    snapshot.expand(["A", "A1"])
+
+    // Delete the parent "A" — children should cascade
+    snapshot.delete(["A"])
+    #expect(!snapshot.contains("A"))
+    #expect(!snapshot.contains("A1"))
+    #expect(!snapshot.contains("A2"))
+    #expect(!snapshot.contains("A1a"))
+    #expect(snapshot.items == ["B"])
+
+    // "B" should still be a valid root
+    #expect(snapshot.parent(of: "B") == nil)
+    #expect(snapshot.rootItems == ["B"])
+  }
+
+  @Test
   func sendableConformance() {
     let snapshot = DiffableDataSourceSectionSnapshot<String>()
     let _: any Sendable = snapshot

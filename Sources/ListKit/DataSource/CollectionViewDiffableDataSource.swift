@@ -188,12 +188,19 @@ public final class CollectionViewDiffableDataSource<
     moveItemAt sourceIndexPath: IndexPath,
     to destinationIndexPath: IndexPath
   ) {
-    guard let item = itemIdentifier(for: sourceIndexPath) else { return }
+    guard let item = itemIdentifier(for: sourceIndexPath) else {
+      assertionFailure("Move failed: no item at source \(sourceIndexPath)")
+      return
+    }
 
     // Remove the item from its current position in the snapshot
     currentSnapshot.deleteItems([item])
 
     // Insert at the destination
+    guard destinationIndexPath.section < currentSnapshot.sectionIdentifiers.count else {
+      assertionFailure("Move failed: destination section \(destinationIndexPath.section) out of bounds")
+      return
+    }
     let destSectionID = currentSnapshot.sectionIdentifiers[destinationIndexPath.section]
     let destItems = currentSnapshot.itemIdentifiers(inSection: destSectionID)
 
@@ -216,6 +223,10 @@ public final class CollectionViewDiffableDataSource<
     }
     // UICollectionView requires supplementary views to be dequeued via a registration.
     // Lazily create a fallback registration per element kind that returns an empty view.
+    assert(
+      fallbackRegistrations.count < 10,
+      "Excessive supplementary element kinds (\(fallbackRegistrations.count)). Verify element kinds are not dynamically generated."
+    )
     if fallbackRegistrations[kind] == nil {
       fallbackRegistrations[kind] = UICollectionView.SupplementaryRegistration<UICollectionReusableView>(
         elementKind: kind

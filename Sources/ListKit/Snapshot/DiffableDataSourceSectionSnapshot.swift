@@ -176,12 +176,13 @@ public struct DiffableDataSourceSectionSnapshot<ItemIdentifierType: Hashable & S
     // Copy relevant maps — only include references to items present in the new snapshot.
     // Without the containment check, a `snapshot(of: child, includingParent: true)` call
     // would copy the child's grandparent reference, creating a dangling parent entry.
+    let snapshotItemSet = newSnapshot.itemSet
     for snapshotItem in newSnapshot.items {
-      if let parent = parentMap[snapshotItem], newSnapshot.itemSet.contains(parent) {
+      if let parent = parentMap[snapshotItem], snapshotItemSet.contains(parent) {
         newSnapshot.parentMap[snapshotItem] = parent
       }
       if let children = childrenMap[snapshotItem] {
-        newSnapshot.childrenMap[snapshotItem] = children.filter { newSnapshot.itemSet.contains($0) }
+        newSnapshot.childrenMap[snapshotItem] = children.filter { snapshotItemSet.contains($0) }
       }
       if expandedItems.contains(snapshotItem) {
         newSnapshot.expandedItems.insert(snapshotItem)

@@ -17,6 +17,7 @@ public enum ListAccessory: @unchecked Sendable, Hashable {
   case detail
 
   /// A text label displayed on the trailing side of the cell (e.g., a count badge).
+  /// An empty string produces a visible but blank accessory label.
   case label(text: String)
 
   /// Escape hatch for parameterized accessories (e.g., `UICellAccessory.detail(actionHandler:)`).

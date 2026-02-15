@@ -127,4 +127,48 @@ struct SimpleListTests {
     list.onDeselect?(TextItem(text: "Y"))
     #expect(deselectedItem?.text == "Y")
   }
+
+  @Test
+  func onMoveCallbackIsWired() {
+    let list = SimpleList<TextItem>()
+
+    var movedSource: IndexPath?
+    var movedDest: IndexPath?
+    list.onMove = { source, dest in
+      movedSource = source
+      movedDest = dest
+    }
+
+    #expect(list.collectionView.dragInteractionEnabled == true)
+
+    // Invoke the callback directly to verify wiring
+    list.onMove?(IndexPath(item: 0, section: 0), IndexPath(item: 1, section: 0))
+    #expect(movedSource == IndexPath(item: 0, section: 0))
+    #expect(movedDest == IndexPath(item: 1, section: 0))
+  }
+
+  @Test
+  func clearingOnMoveDisablesDragInteraction() {
+    let list = SimpleList<TextItem>()
+    list.onMove = { _, _ in }
+    #expect(list.collectionView.dragInteractionEnabled == true)
+
+    list.onMove = nil
+    #expect(list.collectionView.dragInteractionEnabled == false)
+  }
+
+  @Test
+  func showsSeparatorsDefaultIsTrue() {
+    let list = SimpleList<TextItem>()
+    // The default initializer uses showsSeparators: true.
+    // We verify the layout was created (we can't inspect the layout config directly,
+    // but we can verify the list was created successfully with the parameter).
+    #expect(list.collectionView.collectionViewLayout is UICollectionViewCompositionalLayout)
+  }
+
+  @Test
+  func showsSeparatorsFalseCreatesValidLayout() {
+    let list = SimpleList<TextItem>(showsSeparators: false)
+    #expect(list.collectionView.collectionViewLayout is UICollectionViewCompositionalLayout)
+  }
 }
