@@ -99,10 +99,51 @@ struct SimpleListTests {
     var selected = [TextItem]()
     list.onSelect = { item in selected.append(item) }
 
-    await list.setItems([TextItem(text: "A"), TextItem(text: "B")], animatingDifferences: false)
+    let itemA = TextItem(text: "A")
+    let itemB = TextItem(text: "B")
+    await list.setItems([itemA, itemB], animatingDifferences: false)
 
-    // Verify multi-selection is enabled (collection view property persists)
-    #expect(list.collectionView.allowsMultipleSelection == true)
+    // Trigger selection through the delegate method
+    list.collectionView(list.collectionView, didSelectItemAt: IndexPath(item: 0, section: 0))
+    list.collectionView(list.collectionView, didSelectItemAt: IndexPath(item: 1, section: 0))
+
+    // Both items should have been reported through onSelect
+    #expect(selected.count == 2)
+    #expect(selected[0] == itemA)
+    #expect(selected[1] == itemB)
+  }
+
+  @Test
+  func singleSelectionAutoDeselects() async {
+    let list = SimpleList<TextItem>()
+    // Default: allowsMultipleSelection is false
+
+    var selected = [TextItem]()
+    list.onSelect = { item in selected.append(item) }
+
+    let itemA = TextItem(text: "A")
+    await list.setItems([itemA], animatingDifferences: false)
+
+    // Trigger selection — should call onSelect
+    list.collectionView(list.collectionView, didSelectItemAt: IndexPath(item: 0, section: 0))
+    #expect(selected.count == 1)
+    #expect(selected[0] == itemA)
+  }
+
+  @Test
+  func didDeselectDelegateCallsOnDeselect() async {
+    let list = SimpleList<TextItem>()
+
+    var deselected = [TextItem]()
+    list.onDeselect = { item in deselected.append(item) }
+
+    let itemA = TextItem(text: "A")
+    await list.setItems([itemA], animatingDifferences: false)
+
+    // Trigger deselection through the delegate method
+    list.collectionView(list.collectionView, didDeselectItemAt: IndexPath(item: 0, section: 0))
+    #expect(deselected.count == 1)
+    #expect(deselected[0] == itemA)
   }
 
   @Test

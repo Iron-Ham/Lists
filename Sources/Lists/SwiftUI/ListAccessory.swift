@@ -83,10 +83,12 @@ public enum ListAccessory: @unchecked Sendable, Hashable {
 
     case .detail: hasher.combine(5)
 
-    case .label(let text): hasher.combine(6)
+    case .label(let text):
+      hasher.combine(6)
       hasher.combine(text)
 
-    case .custom(_, let key): hasher.combine(7)
+    case .custom(_, let key):
+      hasher.combine(7)
       hasher.combine(key)
     }
   }

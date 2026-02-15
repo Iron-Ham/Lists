@@ -164,6 +164,58 @@ struct CollectionViewDiffableDataSourceTests {
     #expect(calledDest == dest)
   }
 
+  @Test
+  func canMoveItemAtDefaultsToFalse() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    var snapshot = DiffableDataSourceSnapshot<String, Int>()
+    snapshot.appendSections(["A"])
+    snapshot.appendItems([1], toSection: "A")
+    await ds.applySnapshotUsingReloadData(snapshot)
+
+    // Default: no handler set → canMoveItemAt returns false
+    #expect(ds.collectionView(cv, canMoveItemAt: IndexPath(item: 0, section: 0)) == false)
+
+    // With handler returning true → canMoveItemAt returns true
+    ds.canMoveItemHandler = { _ in true }
+    #expect(ds.collectionView(cv, canMoveItemAt: IndexPath(item: 0, section: 0)) == true)
+  }
+
+  @Test
+  func moveItemToEndOfSectionAppends() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    var snapshot = DiffableDataSourceSnapshot<String, Int>()
+    snapshot.appendSections(["A"])
+    snapshot.appendItems([1, 2, 3], toSection: "A")
+    await ds.applySnapshotUsingReloadData(snapshot)
+
+    // Move item 1 to index 3 (past the end after delete) — should append
+    ds.collectionView(cv, moveItemAt: IndexPath(item: 0, section: 0), to: IndexPath(item: 3, section: 0))
+
+    let current = ds.snapshot()
+    #expect(current.itemIdentifiers == [2, 3, 1])
+  }
+
+  @Test
+  func moveItemToSamePositionIsNoOp() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    var snapshot = DiffableDataSourceSnapshot<String, Int>()
+    snapshot.appendSections(["A"])
+    snapshot.appendItems([1, 2, 3], toSection: "A")
+    await ds.applySnapshotUsingReloadData(snapshot)
+
+    // Move item at index 1 to index 1 — should be effectively a no-op
+    ds.collectionView(cv, moveItemAt: IndexPath(item: 1, section: 0), to: IndexPath(item: 1, section: 0))
+
+    let current = ds.snapshot()
+    #expect(current.itemIdentifiers == [1, 2, 3])
+  }
+
   // MARK: Private
 
   private func makeCollectionView() -> UICollectionView {

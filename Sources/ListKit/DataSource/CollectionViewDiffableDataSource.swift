@@ -193,14 +193,16 @@ public final class CollectionViewDiffableDataSource<
       return
     }
 
-    // Remove the item from its current position in the snapshot
-    currentSnapshot.deleteItems([item])
-
-    // Insert at the destination
+    // Validate destination before mutating the snapshot to prevent data loss.
     guard destinationIndexPath.section < currentSnapshot.sectionIdentifiers.count else {
       assertionFailure("Move failed: destination section \(destinationIndexPath.section) out of bounds")
       return
     }
+
+    // Remove the item from its current position in the snapshot
+    currentSnapshot.deleteItems([item])
+
+    // Insert at the destination
     let destSectionID = currentSnapshot.sectionIdentifiers[destinationIndexPath.section]
     let destItems = currentSnapshot.itemIdentifiers(inSection: destSectionID)
 
