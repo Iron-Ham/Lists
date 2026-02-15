@@ -31,4 +31,8 @@ public struct ItemsBuilder<Item: CellViewModel> {
   public static func buildArray(_ components: [[Item]]) -> [Item] {
     components.flatMap(\.self)
   }
+
+  public static func buildLimitedAvailability(_ component: [Item]) -> [Item] {
+    component
+  }
 }

@@ -340,6 +340,33 @@ struct MixedSnapshotBuilderTests {
     #expect(section.id == "test")
     #expect(section.items.count == 2)
   }
+
+  @Test
+  func availabilityCheckInMixedItems() {
+    @MixedItemsBuilder
+    var items: [AnyItem] {
+      AlphaItem(value: "always")
+      if #available(iOS 17, *) {
+        BetaItem(number: 42)
+      }
+    }
+    #expect(items.count == 2)
+  }
+
+  @Test
+  func availabilityCheckInMixedSections() {
+    let snapshot = DiffableDataSourceSnapshot<String, AnyItem> {
+      MixedSection("main") {
+        AlphaItem(value: "a")
+      }
+      if #available(iOS 17, *) {
+        MixedSection("conditional") {
+          BetaItem(number: 1)
+        }
+      }
+    }
+    #expect(snapshot.numberOfSections == 2)
+  }
 }
 
 // MARK: - MixedSnapshotDiffingTests

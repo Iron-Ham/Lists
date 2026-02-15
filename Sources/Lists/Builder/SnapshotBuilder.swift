@@ -54,4 +54,11 @@ public struct SnapshotBuilder<SectionID: Hashable & Sendable, Item: CellViewMode
   public static func buildArray(_ components: [[SnapshotSection<SectionID, Item>]]) -> [SnapshotSection<SectionID, Item>] {
     components.flatMap(\.self)
   }
+
+  public static func buildLimitedAvailability(_ component: [SnapshotSection<SectionID, Item>]) -> [SnapshotSection<
+    SectionID,
+    Item
+  >] {
+    component
+  }
 }
