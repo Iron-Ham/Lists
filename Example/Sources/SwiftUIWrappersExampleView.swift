@@ -46,7 +46,7 @@ struct SwiftUIWrappersExampleView: View {
 // MARK: - SimpleDemoView
 
 /// Uses the inline content closure API — no separate struct needed.
-/// Also demonstrates trailing swipe actions and context menus (long-press preview).
+/// Also demonstrates `onDelete`, `showsSeparators`, and context menus (long-press preview).
 private struct SimpleDemoView: View {
 
   // MARK: Internal
@@ -54,15 +54,12 @@ private struct SimpleDemoView: View {
   var body: some View {
     SimpleListView(
       items: fruits,
+      showsSeparators: false,
       onSelect: { fruit in
         print("Selected: \(fruit.name)")
       },
-      trailingSwipeActionsProvider: { fruit in
-        let deleteAction = UIContextualAction(style: .destructive, title: "Delete") { _, _, completion in
-          fruits.removeAll { $0.id == fruit.id }
-          completion(true)
-        }
-        return UISwipeActionsConfiguration(actions: [deleteAction])
+      onDelete: { fruit in
+        fruits.removeAll { $0.id == fruit.id }
       },
       contextMenuProvider: { fruit in
         UIContextMenuConfiguration(actionProvider: { _ in
@@ -130,6 +127,10 @@ private struct GroupedDemoView: View {
       onSelect: { item in
         print("Selected: \(item.name)")
       },
+      onDelete: { item in
+        languages.removeAll { $0.id == item.id }
+        frameworks.removeAll { $0.id == item.id }
+      },
       onRefresh: {
         // Simulate network fetch
         try? await Task.sleep(for: .seconds(1))
@@ -174,8 +175,20 @@ private struct OutlineDemoView: View {
   var body: some View {
     OutlineListView(
       items: items,
+      showsSeparators: false,
       onSelect: { category in
         print("Selected: \(category.name)")
+      },
+      onDelete: { category in
+        items = items.compactMap { topLevel in
+          if topLevel.item.id == category.id { return nil }
+          let filtered = topLevel.children.filter { $0.item.id != category.id }
+          return OutlineItem(
+            item: topLevel.item,
+            children: filtered,
+            isExpanded: topLevel.isExpanded
+          )
+        }
       },
       contextMenuProvider: { category in
         UIContextMenuConfiguration(actionProvider: { _ in
@@ -258,18 +271,16 @@ private struct LanguageItem: SwiftUICellViewModel, Identifiable {
   let year: Int
 
   var body: some View {
-    HStack {
-      Text(name)
-        .font(.body)
-      Spacer()
-      Text(String(year))
-        .font(.caption)
-        .foregroundStyle(.secondary)
-    }
-    .padding(.vertical, 2)
+    Text(name)
+      .font(.body)
+      .padding(.vertical, 2)
   }
 
   var accessories: [ListAccessory] {
-    [.disclosureIndicator]
+    [
+      .label(text: String(year)),
+      .detail(actionHandler: { print("Detail tapped for \(name)") }),
+      .disclosureIndicator,
+    ]
   }
 }
