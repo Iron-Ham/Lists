@@ -48,6 +48,14 @@ public struct OutlineItem<Item: Hashable & Sendable>: Sendable, Equatable {
 ///   drag-and-drop reordering (`onMove`) due to the complexity of hierarchical move
 ///   constraints. Use a flat list if reordering is required.
 ///
+/// ## Layout Configuration
+///
+/// Layout properties (`appearance`, `showsSeparators`, `separatorColor`, `backgroundColor`,
+/// `headerTopPadding`) are set during initialization and cannot be changed afterward.
+/// This is a UIKit limitation — `UICollectionLayoutListConfiguration` is snapshot-immutable
+/// once the layout is created. Dynamic properties like ``allowsMultipleSelection`` and
+/// ``isEditing`` can be changed at any time.
+///
 /// ```swift
 /// let list = OutlineList<FileItem>()
 /// await list.setItems([
@@ -62,16 +70,34 @@ public final class OutlineList<Item: CellViewModel>: NSObject, UICollectionViewD
   // MARK: Lifecycle
 
   /// Creates an outline list with the specified list appearance.
+  ///
+  /// - Parameters:
+  ///   - appearance: The visual style of the list (e.g., `.sidebar`, `.plain`, `.insetGrouped`).
+  ///   - showsSeparators: Whether separators are shown between rows.
+  ///   - separatorColor: A global tint color applied to all item separators. Per-item
+  ///     customization via ``separatorHandler`` takes precedence.
+  ///   - backgroundColor: An optional background color for the list. When `nil`, the system default is used.
+  ///   - headerTopPadding: Extra padding above each section header. When `nil`, the system default is used.
   public init(
     appearance: UICollectionLayoutListConfiguration.Appearance = .sidebar,
-    showsSeparators: Bool = true
+    showsSeparators: Bool = true,
+    separatorColor: UIColor? = nil,
+    backgroundColor: UIColor? = nil,
+    headerTopPadding: CGFloat? = nil
   ) {
-    let bridge = SwipeActionBridge<Int, Item>()
+    let bridge = ListConfigurationBridge<Int, Item>()
     self.bridge = bridge
+    bridge.setDefaultSeparatorColor(separatorColor)
 
     var config = UICollectionLayoutListConfiguration(appearance: appearance)
     config.showsSeparators = showsSeparators
-    bridge.configureSwipeActions(on: &config)
+    if let backgroundColor {
+      config.backgroundColor = backgroundColor
+    }
+    if let headerTopPadding {
+      config.headerTopPadding = headerTopPadding
+    }
+    bridge.configure(&config)
     let layout = UICollectionViewCompositionalLayout.list(using: config)
 
     collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
@@ -79,9 +105,9 @@ public final class OutlineList<Item: CellViewModel>: NSObject, UICollectionViewD
     super.init()
     collectionView.delegate = self
 
-    bridge.dataSource = dataSource
+    bridge.setDataSource(dataSource)
     // trailingSwipeActionsProvider takes precedence; onDelete is the fallback.
-    bridge.trailingProvider = { [weak self] item in
+    bridge.setTrailingProvider { [weak self] item in
       guard let self else { return nil }
       if let config = trailingSwipeActionsProvider?(item) {
         return config
@@ -93,7 +119,7 @@ public final class OutlineList<Item: CellViewModel>: NSObject, UICollectionViewD
       }
       return UISwipeActionsConfiguration(actions: [action])
     }
-    bridge.leadingProvider = { [weak self] item in self?.leadingSwipeActionsProvider?(item) }
+    bridge.setLeadingProvider { [weak self] item in self?.leadingSwipeActionsProvider?(item) }
   }
 
   // MARK: Public
@@ -110,6 +136,10 @@ public final class OutlineList<Item: CellViewModel>: NSObject, UICollectionViewD
   ///
   /// - Important: The caller is responsible for removing the item from the data source
   ///   after this callback fires. The list does not automatically mutate its snapshot.
+  ///
+  /// - Note: The swipe action always completes as "performed" regardless of whether the
+  ///   underlying operation succeeds. Ensure your handler updates the data source to
+  ///   reflect the actual result.
   public var onDelete: (@MainActor (Item) -> Void)?
 
   /// Closure that returns trailing swipe actions for a given item.
@@ -118,6 +148,52 @@ public final class OutlineList<Item: CellViewModel>: NSObject, UICollectionViewD
   public var leadingSwipeActionsProvider: (@MainActor (Item) -> UISwipeActionsConfiguration?)?
   /// Closure that returns a context menu configuration for a given item.
   public var contextMenuProvider: (@MainActor (Item) -> UIContextMenuConfiguration?)?
+
+  /// Per-item separator customization handler.
+  ///
+  /// Called for each item before display. Return a modified configuration to customize
+  /// separator appearance (color, insets, visibility) on a per-item basis.
+  ///
+  /// ```swift
+  /// list.separatorHandler = { item, defaultConfig in
+  ///     var config = defaultConfig
+  ///     config.color = .systemRed
+  ///     config.bottomSeparatorInsets.leading = 16
+  ///     return config
+  /// }
+  /// ```
+  public var separatorHandler: (@MainActor (Item, UIListSeparatorConfiguration) -> UIListSeparatorConfiguration)? {
+    didSet { bridge.setSeparatorProvider(separatorHandler) }
+  }
+
+  /// Whether the list allows multiple simultaneous selections.
+  ///
+  /// When `true`, tapping an item does not automatically deselect other items.
+  /// Use ``onDeselect`` to track deselection events.
+  public var allowsMultipleSelection: Bool {
+    get { collectionView.allowsMultipleSelection }
+    set { collectionView.allowsMultipleSelection = newValue }
+  }
+
+  /// Whether selection is allowed during editing mode.
+  public var allowsSelectionDuringEditing: Bool {
+    get { collectionView.allowsSelectionDuringEditing }
+    set { collectionView.allowsSelectionDuringEditing = newValue }
+  }
+
+  /// Whether multiple selection is allowed during editing mode.
+  public var allowsMultipleSelectionDuringEditing: Bool {
+    get { collectionView.allowsMultipleSelectionDuringEditing }
+    set { collectionView.allowsMultipleSelectionDuringEditing = newValue }
+  }
+
+  /// Whether the list is in editing mode.
+  ///
+  /// When `true`, cells may display editing controls such as delete and reorder accessories.
+  public var isEditing: Bool {
+    get { collectionView.isEditing }
+    set { collectionView.isEditing = newValue }
+  }
 
   /// Replaces the outline's tree, computing and animating the diff.
   ///
@@ -162,23 +238,36 @@ public final class OutlineList<Item: CellViewModel>: NSObject, UICollectionViewD
     dataSource.snapshot()
   }
 
+  /// Returns the item at the given index path, or `nil` if out of bounds.
+  public func itemIdentifier(for indexPath: IndexPath) -> Item? {
+    bridge.itemIdentifier(for: indexPath)
+  }
+
+  /// Returns the index path for the specified item, or `nil` if not found.
+  public func indexPath(for item: Item) -> IndexPath? {
+    bridge.indexPath(for: item)
+  }
+
+  /// Programmatically scrolls to the specified item.
+  ///
+  /// - Returns: `true` if the item was found in the current snapshot and the scroll was
+  ///   initiated, `false` if the item is not present. For hierarchical lists, items must
+  ///   be visible (not collapsed under a parent) to be scrolled to.
+  @discardableResult
+  public func scrollToItem(
+    _ item: Item,
+    at scrollPosition: UICollectionView.ScrollPosition = .centeredVertically,
+    animated: Bool = true
+  ) -> Bool {
+    bridge.scrollToItem(item, in: collectionView, at: scrollPosition, animated: animated)
+  }
+
   public func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-    if !collectionView.allowsMultipleSelection {
-      collectionView.deselectItem(at: indexPath, animated: true)
-    }
-    guard let item = dataSource.itemIdentifier(for: indexPath) else {
-      assertionFailure("Item not found for indexPath \(indexPath)")
-      return
-    }
-    onSelect?(item)
+    bridge.handleDidSelect(in: collectionView, at: indexPath, onSelect: onSelect)
   }
 
   public func collectionView(_: UICollectionView, didDeselectItemAt indexPath: IndexPath) {
-    guard let item = dataSource.itemIdentifier(for: indexPath) else {
-      assertionFailure("Item not found for indexPath \(indexPath)")
-      return
-    }
-    onDeselect?(item)
+    bridge.handleDidDeselect(at: indexPath, onDeselect: onDeselect)
   }
 
   public func collectionView(
@@ -186,14 +275,13 @@ public final class OutlineList<Item: CellViewModel>: NSObject, UICollectionViewD
     contextMenuConfigurationForItemAt indexPath: IndexPath,
     point _: CGPoint
   ) -> UIContextMenuConfiguration? {
-    guard let item = dataSource.itemIdentifier(for: indexPath) else { return nil }
-    return contextMenuProvider?(item)
+    bridge.handleContextMenu(at: indexPath, provider: contextMenuProvider)
   }
 
   // MARK: Private
 
   private let dataSource: ListDataSource<Int, Item>
-  private let bridge: SwipeActionBridge<Int, Item>
+  private let bridge: ListConfigurationBridge<Int, Item>
   private var applyTask: Task<Void, Never>?
 
   private func appendItems(
