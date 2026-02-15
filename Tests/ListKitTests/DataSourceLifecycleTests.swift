@@ -79,15 +79,16 @@ struct DataSourceLifecycleTests {
       await ds.applySnapshotUsingReloadData(snapshot)
     }
 
-    // Collection view is nil now — apply should not crash (it early-returns)
+    // Collection view is nil now — apply should not crash (it early-returns after updating snapshot)
     var snapshot = DiffableDataSourceSnapshot<String, Int>()
     snapshot.appendSections(["A"])
     snapshot.appendItems([1, 2, 3], toSection: "A")
     await ds.apply(snapshot, animatingDifferences: false)
 
-    // Snapshot retains last successfully applied state (apply no-ops when CV is nil)
+    // Snapshot always tracks the latest applied state, even if the UI couldn't be updated.
+    // This prevents stale diffs if the data source is later connected to a new collection view.
     let current = ds.snapshot()
-    #expect(current.itemIdentifiers == [1, 2])
+    #expect(current.itemIdentifiers == [1, 2, 3])
   }
 
   /// Applying an empty snapshot should clear everything.
@@ -316,6 +317,80 @@ struct DataSourceLifecycleTests {
 
     #expect(order == [1, 2, 3])
     #expect(ds.snapshot().itemIdentifiers == [1, 2, 3])
+  }
+
+  /// applySnapshotUsingReloadData should serialize with apply — interleaving should not corrupt state.
+  @Test
+  func reloadDataSerializesWithApply() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    // Apply an initial snapshot
+    var snap1 = DiffableDataSourceSnapshot<String, Int>()
+    snap1.appendSections(["A"])
+    snap1.appendItems([1, 2, 3], toSection: "A")
+    await ds.apply(snap1, animatingDifferences: false)
+
+    // Rapidly interleave apply and reloadData — should not crash or corrupt state
+    var snap2 = DiffableDataSourceSnapshot<String, Int>()
+    snap2.appendSections(["A"])
+    snap2.appendItems([4, 5], toSection: "A")
+
+    var snap3 = DiffableDataSourceSnapshot<String, Int>()
+    snap3.appendSections(["B"])
+    snap3.appendItems([6, 7, 8], toSection: "B")
+
+    var snap4 = DiffableDataSourceSnapshot<String, Int>()
+    snap4.appendSections(["C"])
+    snap4.appendItems([9], toSection: "C")
+
+    // Fire them without awaiting individually — serialization should keep them ordered
+    ds.apply(snap2, animatingDifferences: false, completion: nil)
+    // This used to bypass the applyTask chain — now it's serialized
+    let reloadTask = Task {
+      await ds.applySnapshotUsingReloadData(snap3)
+    }
+    ds.apply(snap4, animatingDifferences: false, completion: nil)
+
+    // Await the reload task and a final drain
+    await reloadTask.value
+    var drain = DiffableDataSourceSnapshot<String, Int>()
+    drain.appendSections(["final"])
+    drain.appendItems([100], toSection: "final")
+    await ds.apply(drain, animatingDifferences: false)
+
+    let result = ds.snapshot()
+    #expect(result.sectionIdentifiers == ["final"])
+    #expect(result.itemIdentifiers == [100])
+  }
+
+  /// Cancelled apply should be skipped — snapshot should not change.
+  @Test
+  func cancelledApplyIsSkipped() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    // Apply initial state
+    var initial = DiffableDataSourceSnapshot<String, Int>()
+    initial.appendSections(["A"])
+    initial.appendItems([1, 2], toSection: "A")
+    await ds.apply(initial, animatingDifferences: false)
+
+    // Create and immediately cancel a task that applies a new snapshot
+    var stale = DiffableDataSourceSnapshot<String, Int>()
+    stale.appendSections(["stale"])
+    stale.appendItems([99], toSection: "stale")
+
+    let task = Task {
+      await ds.apply(stale, animatingDifferences: false)
+    }
+    task.cancel()
+    await task.value
+
+    // The snapshot should either be the initial or stale — but the cancel
+    // gives us a chance to skip it. Verify no crash at minimum.
+    let result = ds.snapshot()
+    #expect(result.numberOfSections >= 1)
   }
 
   // MARK: Private

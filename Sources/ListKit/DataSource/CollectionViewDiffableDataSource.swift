@@ -44,6 +44,7 @@ public final class CollectionViewDiffableDataSource<
 
   /// Primary apply — async with animated differences.
   /// Serialized: concurrent calls are queued and executed in order.
+  /// Supports cooperative cancellation — cancelled tasks skip the apply.
   public func apply(
     _ snapshot: DiffableDataSourceSnapshot<SectionIdentifierType, ItemIdentifierType>,
     animatingDifferences: Bool = true
@@ -51,6 +52,7 @@ public final class CollectionViewDiffableDataSource<
     let previousTask = applyTask
     let task = Task { @MainActor in
       _ = await previousTask?.value
+      guard !Task.isCancelled else { return }
       await self.performApply(snapshot, animatingDifferences: animatingDifferences)
     }
     applyTask = task
@@ -72,12 +74,20 @@ public final class CollectionViewDiffableDataSource<
     }
   }
 
-  /// Reload without diffing
+  /// Reload without diffing.
+  /// Serialized with `apply()` to prevent snapshot/UI mismatch when both are in flight.
   public func applySnapshotUsingReloadData(
     _ snapshot: DiffableDataSourceSnapshot<SectionIdentifierType, ItemIdentifierType>
   ) async {
-    currentSnapshot = snapshot
-    collectionView?.reloadData()
+    let previousTask = applyTask
+    let task = Task { @MainActor in
+      _ = await previousTask?.value
+      guard !Task.isCancelled else { return }
+      self.currentSnapshot = snapshot
+      self.collectionView?.reloadData()
+    }
+    applyTask = task
+    await task.value
   }
 
   /// Apply section snapshot to a specific section
@@ -150,9 +160,14 @@ public final class CollectionViewDiffableDataSource<
 
   public func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
     guard let itemID = currentSnapshot.itemIdentifier(inSectionAt: indexPath.section, itemIndex: indexPath.item) else {
+      assertionFailure("Snapshot/UICollectionView mismatch: no item at \(indexPath)")
       return UICollectionViewCell()
     }
-    return cellProvider(collectionView, indexPath, itemID) ?? UICollectionViewCell()
+    guard let cell = cellProvider(collectionView, indexPath, itemID) else {
+      assertionFailure("cellProvider returned nil for item at \(indexPath)")
+      return UICollectionViewCell()
+    }
+    return cell
   }
 
   public func collectionView(
@@ -192,14 +207,15 @@ public final class CollectionViewDiffableDataSource<
     _ snapshot: DiffableDataSourceSnapshot<SectionIdentifierType, ItemIdentifierType>,
     animatingDifferences: Bool
   ) async {
+    let oldSnapshot = currentSnapshot
+    currentSnapshot = snapshot
+
     guard let collectionView else { return }
 
     let changeset = SectionedDiff.diff(
-      old: currentSnapshot,
+      old: oldSnapshot,
       new: snapshot
     )
-
-    currentSnapshot = snapshot
 
     // No structural changes — skip UI update entirely
     if changeset.isEmpty {

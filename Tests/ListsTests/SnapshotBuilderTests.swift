@@ -171,4 +171,34 @@ struct SnapshotBuilderTests {
 
     #expect(snapshot.itemIdentifiers == [NumberItem(value: 100)])
   }
+
+  @Test
+  func availabilityCheckInItems() {
+    let snapshot = DiffableDataSourceSnapshot<String, NumberItem> {
+      SnapshotSection("main") {
+        NumberItem(value: 1)
+        if #available(iOS 17, *) {
+          NumberItem(value: 2)
+        }
+      }
+    }
+
+    #expect(snapshot.numberOfItems == 2)
+  }
+
+  @Test
+  func availabilityCheckInSections() {
+    let snapshot = DiffableDataSourceSnapshot<String, NumberItem> {
+      SnapshotSection("always") {
+        NumberItem(value: 1)
+      }
+      if #available(iOS 17, *) {
+        SnapshotSection("conditional") {
+          NumberItem(value: 2)
+        }
+      }
+    }
+
+    #expect(snapshot.numberOfSections == 2)
+  }
 }

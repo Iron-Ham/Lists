@@ -86,9 +86,11 @@ final class DynamicCellRegistrar {
       withReuseIdentifier: String(reflecting: T.Cell.self),
       for: indexPath
     )
-    if let typedCell = cell as? T.Cell {
-      item.configure(typedCell)
+    guard let typedCell = cell as? T.Cell else {
+      assertionFailure("Dequeued cell \(type(of: cell)) is not \(T.Cell.self) — cell registration mismatch")
+      return cell
     }
+    item.configure(typedCell)
     return cell
   }
 

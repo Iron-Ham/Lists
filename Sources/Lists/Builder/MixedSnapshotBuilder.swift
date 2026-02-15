@@ -60,6 +60,10 @@ public struct MixedItemsBuilder {
   public static func buildArray(_ components: [[AnyItem]]) -> [AnyItem] {
     components.flatMap(\.self)
   }
+
+  public static func buildLimitedAvailability(_ component: [AnyItem]) -> [AnyItem] {
+    component
+  }
 }
 
 // MARK: - MixedSnapshotBuilder
@@ -89,5 +93,9 @@ public struct MixedSnapshotBuilder<SectionID: Hashable & Sendable> {
 
   public static func buildArray(_ components: [[MixedSection<SectionID>]]) -> [MixedSection<SectionID>] {
     components.flatMap(\.self)
+  }
+
+  public static func buildLimitedAvailability(_ component: [MixedSection<SectionID>]) -> [MixedSection<SectionID>] {
+    component
   }
 }

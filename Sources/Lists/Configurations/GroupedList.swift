@@ -54,11 +54,15 @@ public final class GroupedList<SectionID: Hashable & Sendable, Item: CellViewMod
   public var contextMenuProvider: (@MainActor (Item) -> UIContextMenuConfiguration?)?
 
   /// Replaces all sections, computing and animating the diff.
+  ///
+  /// Cancels any previously queued apply so only the most recent snapshot is applied,
+  /// and supports cooperative cancellation from the calling task.
   public func setSections(_ sections: [SectionModel<SectionID, Item>], animatingDifferences: Bool = true) async {
+    applyTask?.cancel()
     let previousTask = applyTask
-    let task = Task { @MainActor in
+    let task = Task { [weak self] in
       _ = await previousTask?.value
-      guard !Task.isCancelled else { return }
+      guard !Task.isCancelled, let self else { return }
       var newHeaders = [SectionID: String]()
       var newFooters = [SectionID: String]()
       for section in sections {
@@ -69,12 +73,20 @@ public final class GroupedList<SectionID: Hashable & Sendable, Item: CellViewMod
           newFooters[section.id] = footer
         }
       }
-      self.sectionHeaders = newHeaders
-      self.sectionFooters = newFooters
-      await self.dataSource.apply(sections, animatingDifferences: animatingDifferences)
+      // Merge new values so both old and new sections have valid headers during animation
+      sectionHeaders.merge(newHeaders) { _, new in new }
+      sectionFooters.merge(newFooters) { _, new in new }
+      await dataSource.apply(sections, animatingDifferences: animatingDifferences)
+      // Trim to only current sections after apply completes
+      sectionHeaders = newHeaders
+      sectionFooters = newFooters
     }
     applyTask = task
-    await task.value
+    await withTaskCancellationHandler {
+      await task.value
+    } onCancel: {
+      task.cancel()
+    }
   }
 
   /// Returns a copy of the current snapshot.

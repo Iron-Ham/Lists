@@ -50,18 +50,26 @@ public final class SimpleList<Item: CellViewModel>: NSObject, UICollectionViewDe
   public var contextMenuProvider: (@MainActor (Item) -> UIContextMenuConfiguration?)?
 
   /// Replaces the list's items, computing and animating the diff.
+  ///
+  /// Cancels any previously queued apply so only the most recent snapshot is applied,
+  /// and supports cooperative cancellation from the calling task.
   public func setItems(_ items: [Item], animatingDifferences: Bool = true) async {
+    applyTask?.cancel()
     let previousTask = applyTask
-    let task = Task { @MainActor in
+    let task = Task { [weak self] in
       _ = await previousTask?.value
-      guard !Task.isCancelled else { return }
+      guard !Task.isCancelled, let self else { return }
       var snapshot = DiffableDataSourceSnapshot<Int, Item>()
       snapshot.appendSections([0])
       snapshot.appendItems(items, toSection: 0)
-      await self.dataSource.apply(snapshot, animatingDifferences: animatingDifferences)
+      await dataSource.apply(snapshot, animatingDifferences: animatingDifferences)
     }
     applyTask = task
-    await task.value
+    await withTaskCancellationHandler {
+      await task.value
+    } onCancel: {
+      task.cancel()
+    }
   }
 
   /// Replaces the list's items using the ``ItemsBuilder`` result builder DSL.

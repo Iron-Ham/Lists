@@ -71,4 +71,40 @@ struct GroupedListTests {
 
     #expect(list.snapshot().numberOfSections == 2)
   }
+
+  @Test
+  func rapidSectionReplacementProducesCorrectFinalState() async {
+    let list = GroupedList<String, TextItem>()
+
+    async let _ = list.setSections([
+      SectionModel(id: "A", items: [TextItem(text: "1")])
+    ], animatingDifferences: false)
+
+    async let _ = list.setSections([
+      SectionModel(id: "B", items: [TextItem(text: "2")])
+    ], animatingDifferences: false)
+
+    await list.setSections([
+      SectionModel(id: "X", items: [TextItem(text: "final")], header: "Final Header")
+    ], animatingDifferences: false)
+
+    let snapshot = list.snapshot()
+    #expect(snapshot.numberOfSections == 1)
+    #expect(snapshot.sectionIdentifiers == ["X"])
+    #expect(snapshot.numberOfItems == 1)
+  }
+
+  @Test
+  func clearAllSections() async {
+    let list = GroupedList<String, TextItem>()
+
+    await list.setSections([
+      SectionModel(id: "A", items: [TextItem(text: "1")], header: "H")
+    ], animatingDifferences: false)
+    #expect(list.snapshot().numberOfSections == 1)
+
+    await list.setSections([], animatingDifferences: false)
+    #expect(list.snapshot().numberOfSections == 0)
+    #expect(list.snapshot().numberOfItems == 0)
+  }
 }
