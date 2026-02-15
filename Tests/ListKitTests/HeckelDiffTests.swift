@@ -47,17 +47,19 @@ struct HeckelDiffTests {
     #expect(result.inserts.isEmpty)
   }
 
-  /// Test single move
+  /// Test single move — moving 3 to the front is the only genuine reordering;
+  /// 1 and 2 shift naturally and don't need explicit moves.
   @Test
   func singleMove() {
     let result = HeckelDiff.diff(old: [1, 2, 3], new: [3, 1, 2])
-    // All items are unique, so they should be matched
-    // 1: old=0, new=1 → move
-    // 2: old=1, new=2 → move
-    // 3: old=2, new=0 → move
+    // 3: old=2, new=0 → genuine move (changed relative order)
+    // 1: old=0, new=1 → positional shift (stays in relative order with 2)
+    // 2: old=1, new=2 → positional shift (stays in relative order with 1)
     #expect(result.deletes.isEmpty)
     #expect(result.inserts.isEmpty)
-    #expect(result.moves.count == 3)
+    #expect(result.moves.count == 1)
+    #expect(result.moves[0].from == 2)
+    #expect(result.moves[0].to == 0)
   }
 
   /// Test interleaved changes
@@ -117,5 +119,96 @@ struct HeckelDiffTests {
     #expect(result.deletes.count == 5000)
     #expect(result.inserts.count == 5000)
     #expect(result.matched.count == 5000)
+  }
+
+  /// Deleting an item should produce no moves — remaining items shift naturally.
+  @Test
+  func deleteProducesNoMoves() {
+    let result = HeckelDiff.diff(old: [1, 2, 3, 4, 5], new: [1, 2, 4, 5])
+    #expect(result.deletes == [2]) // 3 deleted
+    #expect(result.moves.isEmpty) // no reordering
+  }
+
+  /// Inserting an item should produce no moves — existing items shift naturally.
+  @Test
+  func insertProducesNoMoves() {
+    let result = HeckelDiff.diff(old: [1, 2, 3], new: [1, 2, 99, 3])
+    #expect(result.inserts == [2]) // 99 inserted at new index 2
+    #expect(result.moves.isEmpty)
+  }
+
+  /// Moving one element to the front is a single genuine move.
+  @Test
+  func moveToFrontIsSingleMove() {
+    let result = HeckelDiff.diff(old: [1, 2, 3, 4, 5], new: [5, 1, 2, 3, 4])
+    #expect(result.deletes.isEmpty)
+    #expect(result.inserts.isEmpty)
+    // Only 5 needs an explicit move; 1-4 shift naturally
+    #expect(result.moves.count == 1)
+    #expect(result.moves[0].from == 4)
+    #expect(result.moves[0].to == 0)
+  }
+
+  /// Swapping two elements requires one move (the other adjusts naturally).
+  @Test
+  func swapRequiresOneMove() {
+    let result = HeckelDiff.diff(old: [1, 2, 3], new: [1, 3, 2])
+    #expect(result.moves.count == 1)
+  }
+
+  /// Complete reversal of n elements requires n-1 moves (LIS length is 1).
+  @Test
+  func reversalMovesCount() {
+    let result = HeckelDiff.diff(old: [1, 2, 3, 4, 5], new: [5, 4, 3, 2, 1])
+    // LIS of reversed old-indices [4,3,2,1,0] has length 1, so 4 moves needed
+    #expect(result.moves.count == 4)
+  }
+
+  /// Already-sorted array needs no moves.
+  @Test
+  func alreadySortedNoMoves() {
+    let result = HeckelDiff.diff(old: [1, 2, 3, 4, 5], new: [1, 2, 3, 4, 5])
+    #expect(result.moves.isEmpty)
+  }
+
+  /// LIS with all-duplicate old-indices should produce maximum moves.
+  @Test
+  func allDuplicateLISProducesMaximalMoves() {
+    // When every element appears in both arrays but none are unique,
+    // the expansion passes still match them. Verify we don't crash
+    // and the result is structurally valid.
+    let old = [1, 1, 2, 2, 3, 3]
+    let new = [3, 3, 1, 1, 2, 2]
+
+    let result = HeckelDiff.diff(old: old, new: new)
+
+    // Net change should be zero (same multiset)
+    #expect(result.deletes.count == result.inserts.count)
+
+    // Every old index is accounted for
+    let oldCovered = Set(result.deletes + result.matched.map(\.old))
+    #expect(oldCovered == Set(0 ..< old.count))
+
+    let newCovered = Set(result.inserts + result.matched.map(\.new))
+    #expect(newCovered == Set(0 ..< new.count))
+  }
+
+  /// Verify that applying deletes + inserts + moves reconstructs the new array.
+  @Test
+  func movesReconstructNewArray() {
+    let old = [10, 20, 30, 40, 50]
+    let new = [30, 50, 10, 20, 40]
+    let result = HeckelDiff.diff(old: old, new: new)
+
+    // Every old index is either deleted or matched, every new index is inserted or matched
+    let oldCovered = Set(result.deletes + result.matched.map(\.old))
+    #expect(oldCovered == Set(0 ..< old.count))
+    let newCovered = Set(result.inserts + result.matched.map(\.new))
+    #expect(newCovered == Set(0 ..< new.count))
+
+    // Matched pairs should map old→new correctly
+    for pair in result.matched {
+      #expect(old[pair.old] == new[pair.new])
+    }
   }
 }

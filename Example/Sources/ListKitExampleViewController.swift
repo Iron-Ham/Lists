@@ -101,6 +101,20 @@ final class ListKitExampleViewController: UIViewController {
         nil
       }
     }
+
+    // Only allow reordering items in the "All Items" section
+    dataSource.canMoveItemHandler = { indexPath in
+      Section(rawValue: indexPath.section) == .all
+    }
+
+    // Persist reorder in the backing array
+    dataSource.didMoveItemHandler = { [weak self] source, destination in
+      guard let self else { return }
+      let item = allItems.remove(at: source.item)
+      allItems.insert(item, at: destination.item)
+    }
+
+    collectionView.dragInteractionEnabled = true
   }
 
   private func setupNavigationBar() {

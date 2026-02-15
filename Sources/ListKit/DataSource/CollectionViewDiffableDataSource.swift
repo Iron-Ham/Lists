@@ -42,6 +42,15 @@ public final class CollectionViewDiffableDataSource<
   /// An optional closure for providing supplementary views (headers, footers).
   public var supplementaryViewProvider: SupplementaryViewProvider?
 
+  /// Optional closure to determine whether a specific item can be reordered.
+  /// Return `true` to allow the item at the given index path to be moved.
+  public var canMoveItemHandler: (@MainActor (IndexPath) -> Bool)?
+
+  /// Optional closure called after the user finishes reordering an item via drag-and-drop.
+  /// The data source updates its internal snapshot automatically; use this closure to
+  /// persist the new order in your model layer.
+  public var didMoveItemHandler: (@MainActor (IndexPath, IndexPath) -> Void)?
+
   /// Primary apply — async with animated differences.
   /// Serialized: concurrent calls are queued and executed in order.
   /// Supports cooperative cancellation — cancelled tasks skip the apply.
@@ -170,6 +179,42 @@ public final class CollectionViewDiffableDataSource<
     return cell
   }
 
+  public func collectionView(_: UICollectionView, canMoveItemAt indexPath: IndexPath) -> Bool {
+    canMoveItemHandler?(indexPath) ?? false
+  }
+
+  public func collectionView(
+    _: UICollectionView,
+    moveItemAt sourceIndexPath: IndexPath,
+    to destinationIndexPath: IndexPath
+  ) {
+    guard let item = itemIdentifier(for: sourceIndexPath) else {
+      assertionFailure("Move failed: no item at source \(sourceIndexPath)")
+      return
+    }
+
+    // Validate destination before mutating the snapshot to prevent data loss.
+    guard destinationIndexPath.section < currentSnapshot.sectionIdentifiers.count else {
+      assertionFailure("Move failed: destination section \(destinationIndexPath.section) out of bounds")
+      return
+    }
+
+    // Remove the item from its current position in the snapshot
+    currentSnapshot.deleteItems([item])
+
+    // Insert at the destination
+    let destSectionID = currentSnapshot.sectionIdentifiers[destinationIndexPath.section]
+    let destItems = currentSnapshot.itemIdentifiers(inSection: destSectionID)
+
+    if destinationIndexPath.item < destItems.count {
+      currentSnapshot.insertItems([item], beforeItem: destItems[destinationIndexPath.item])
+    } else {
+      currentSnapshot.appendItems([item], toSection: destSectionID)
+    }
+
+    didMoveItemHandler?(sourceIndexPath, destinationIndexPath)
+  }
+
   public func collectionView(
     _ collectionView: UICollectionView,
     viewForSupplementaryElementOfKind kind: String,
@@ -180,6 +225,10 @@ public final class CollectionViewDiffableDataSource<
     }
     // UICollectionView requires supplementary views to be dequeued via a registration.
     // Lazily create a fallback registration per element kind that returns an empty view.
+    assert(
+      fallbackRegistrations.count < 10,
+      "Excessive supplementary element kinds (\(fallbackRegistrations.count)). Verify element kinds are not dynamically generated."
+    )
     if fallbackRegistrations[kind] == nil {
       fallbackRegistrations[kind] = UICollectionView.SupplementaryRegistration<UICollectionReusableView>(
         elementKind: kind

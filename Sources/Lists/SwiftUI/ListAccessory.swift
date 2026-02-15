@@ -16,6 +16,10 @@ public enum ListAccessory: @unchecked Sendable, Hashable {
   case outlineDisclosure
   case detail
 
+  /// A text label displayed on the trailing side of the cell (e.g., a count badge).
+  /// An empty string produces a visible but blank accessory label.
+  case label(text: String)
+
   /// Escape hatch for parameterized accessories (e.g., `UICellAccessory.detail(actionHandler:)`).
   /// The `key` is used for equality — two `.custom` values are equal when their keys match.
   case custom(UICellAccessory, key: AnyHashable)
@@ -31,8 +35,20 @@ public enum ListAccessory: @unchecked Sendable, Hashable {
     case .reorder: .reorder()
     case .outlineDisclosure: .outlineDisclosure()
     case .detail: .detail()
+    case .label(let text): .label(text: text)
     case .custom(let accessory, _): accessory
     }
+  }
+
+  /// Creates a detail (info) button with an action handler.
+  ///
+  /// Use this when the detail button should trigger an action on tap. For a purely
+  /// decorative info button, use the ``detail`` case instead.
+  public static func detail(
+    actionHandler: @escaping () -> Void,
+    key: AnyHashable = AnyHashable("detail-action")
+  ) -> ListAccessory {
+    .custom(UICellAccessory.detail(actionHandler: actionHandler), key: key)
   }
 
   public static func ==(lhs: ListAccessory, rhs: ListAccessory) -> Bool {
@@ -44,6 +60,8 @@ public enum ListAccessory: @unchecked Sendable, Hashable {
          (.outlineDisclosure, .outlineDisclosure),
          (.detail, .detail):
       true
+    case (.label(let lhsText), .label(let rhsText)):
+      lhsText == rhsText
     case (.custom(_, let lhsKey), .custom(_, let rhsKey)):
       lhsKey == rhsKey
     default:
@@ -54,12 +72,23 @@ public enum ListAccessory: @unchecked Sendable, Hashable {
   public func hash(into hasher: inout Hasher) {
     switch self {
     case .disclosureIndicator: hasher.combine(0)
+
     case .checkmark: hasher.combine(1)
+
     case .delete: hasher.combine(2)
+
     case .reorder: hasher.combine(3)
+
     case .outlineDisclosure: hasher.combine(4)
+
     case .detail: hasher.combine(5)
-    case .custom(_, let key): hasher.combine(6)
+
+    case .label(let text):
+      hasher.combine(6)
+      hasher.combine(text)
+
+    case .custom(_, let key):
+      hasher.combine(7)
       hasher.combine(key)
     }
   }

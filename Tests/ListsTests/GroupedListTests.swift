@@ -107,4 +107,54 @@ struct GroupedListTests {
     #expect(list.snapshot().numberOfSections == 0)
     #expect(list.snapshot().numberOfItems == 0)
   }
+
+  @Test
+  func sectionModelAcceptsNonCellViewModelItems() {
+    // SectionModel should accept any Hashable & Sendable type, not just CellViewModel.
+    // This enables the inline-content convenience initializers on GroupedListView.
+    let section = SectionModel(id: "test", items: ["Hello", "World"], header: "Strings")
+    #expect(section.id == "test")
+    #expect(section.items == ["Hello", "World"])
+    #expect(section.header == "Strings")
+
+    let intSection = SectionModel(id: 0, items: [1, 2, 3])
+    #expect(intSection.items.count == 3)
+  }
+
+  @Test
+  func onDeleteCallbackIsStored() {
+    let list = GroupedList<String, TextItem>()
+    var deletedItem: TextItem?
+    list.onDelete = { item in deletedItem = item }
+    list.onDelete?(TextItem(text: "Z"))
+    #expect(deletedItem?.text == "Z")
+  }
+
+  @Test
+  func onMoveCallbackIsWired() {
+    let list = GroupedList<String, TextItem>()
+
+    var movedSource: IndexPath?
+    var movedDest: IndexPath?
+    list.onMove = { source, dest in
+      movedSource = source
+      movedDest = dest
+    }
+
+    #expect(list.collectionView.dragInteractionEnabled == true)
+
+    list.onMove?(IndexPath(item: 0, section: 0), IndexPath(item: 1, section: 0))
+    #expect(movedSource == IndexPath(item: 0, section: 0))
+    #expect(movedDest == IndexPath(item: 1, section: 0))
+  }
+
+  @Test
+  func clearingOnMoveDisablesDragInteraction() {
+    let list = GroupedList<String, TextItem>()
+    list.onMove = { _, _ in }
+    #expect(list.collectionView.dragInteractionEnabled == true)
+
+    list.onMove = nil
+    #expect(list.collectionView.dragInteractionEnabled == false)
+  }
 }

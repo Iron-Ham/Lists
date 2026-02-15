@@ -2,7 +2,12 @@
 ///
 /// Use `SectionModel` with ``GroupedList`` or ``ListDataSource`` to define
 /// multi-section lists with headers and footers.
-public struct SectionModel<SectionID: Hashable & Sendable, Item: CellViewModel>: Sendable, Equatable {
+///
+/// The `Item` constraint is `Hashable & Sendable` rather than ``CellViewModel`` so that
+/// `SectionModel` can also be used with the inline-content convenience initializers on
+/// ``GroupedListView``, where items are plain data values wrapped in ``InlineCellViewModel``.
+/// APIs that need ``CellViewModel`` (e.g. ``ListDataSource``) add that constraint themselves.
+public struct SectionModel<SectionID: Hashable & Sendable, Item: Hashable & Sendable>: Sendable, Equatable {
   /// Creates a section with the given identifier, items, and optional header/footer.
   public init(id: SectionID, items: [Item], header: String? = nil, footer: String? = nil) {
     self.id = id

@@ -7,36 +7,48 @@ import UIKit
 /// their own layouts automatically.
 @MainActor
 public enum ListLayout {
+
+  // MARK: Public
+
   /// Creates a plain list layout with optional header and footer modes.
   public static func plain(
     headerMode: UICollectionLayoutListConfiguration.HeaderMode = .none,
-    footerMode: UICollectionLayoutListConfiguration.FooterMode = .none
+    footerMode: UICollectionLayoutListConfiguration.FooterMode = .none,
+    showsSeparators: Bool = true
   ) -> UICollectionViewCompositionalLayout {
-    var config = UICollectionLayoutListConfiguration(appearance: .plain)
-    config.headerMode = headerMode
-    config.footerMode = footerMode
-    return UICollectionViewCompositionalLayout.list(using: config)
+    makeLayout(appearance: .plain, headerMode: headerMode, footerMode: footerMode, showsSeparators: showsSeparators)
   }
 
   /// Creates an inset-grouped list layout with optional header and footer modes.
   public static func insetGrouped(
     headerMode: UICollectionLayoutListConfiguration.HeaderMode = .none,
-    footerMode: UICollectionLayoutListConfiguration.FooterMode = .none
+    footerMode: UICollectionLayoutListConfiguration.FooterMode = .none,
+    showsSeparators: Bool = true
   ) -> UICollectionViewCompositionalLayout {
-    var config = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
-    config.headerMode = headerMode
-    config.footerMode = footerMode
-    return UICollectionViewCompositionalLayout.list(using: config)
+    makeLayout(appearance: .insetGrouped, headerMode: headerMode, footerMode: footerMode, showsSeparators: showsSeparators)
   }
 
   /// Creates a sidebar list layout with optional header and footer modes.
   public static func sidebar(
     headerMode: UICollectionLayoutListConfiguration.HeaderMode = .none,
-    footerMode: UICollectionLayoutListConfiguration.FooterMode = .none
+    footerMode: UICollectionLayoutListConfiguration.FooterMode = .none,
+    showsSeparators: Bool = true
   ) -> UICollectionViewCompositionalLayout {
-    var config = UICollectionLayoutListConfiguration(appearance: .sidebar)
+    makeLayout(appearance: .sidebar, headerMode: headerMode, footerMode: footerMode, showsSeparators: showsSeparators)
+  }
+
+  // MARK: Private
+
+  private static func makeLayout(
+    appearance: UICollectionLayoutListConfiguration.Appearance,
+    headerMode: UICollectionLayoutListConfiguration.HeaderMode,
+    footerMode: UICollectionLayoutListConfiguration.FooterMode,
+    showsSeparators: Bool
+  ) -> UICollectionViewCompositionalLayout {
+    var config = UICollectionLayoutListConfiguration(appearance: appearance)
     config.headerMode = headerMode
     config.footerMode = footerMode
+    config.showsSeparators = showsSeparators
     return UICollectionViewCompositionalLayout.list(using: config)
   }
 }
