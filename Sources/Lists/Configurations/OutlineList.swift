@@ -44,6 +44,10 @@ public struct OutlineItem<Item: Hashable & Sendable>: Sendable, Equatable {
 /// `OutlineList` uses ``DiffableDataSourceSectionSnapshot`` under the hood to model
 /// parent–child relationships. Items can be expanded or collapsed.
 ///
+/// - Note: Unlike ``SimpleList`` and ``GroupedList``, `OutlineList` does not support
+///   drag-and-drop reordering (`onMove`) due to the complexity of hierarchical move
+///   constraints. Use a flat list if reordering is required.
+///
 /// ```swift
 /// let list = OutlineList<FileItem>()
 /// await list.setItems([
@@ -76,6 +80,7 @@ public final class OutlineList<Item: CellViewModel>: NSObject, UICollectionViewD
     collectionView.delegate = self
 
     bridge.dataSource = dataSource
+    // trailingSwipeActionsProvider takes precedence; onDelete is the fallback.
     bridge.trailingProvider = { [weak self] item in
       guard let self else { return nil }
       if let config = trailingSwipeActionsProvider?(item) {
@@ -102,6 +107,9 @@ public final class OutlineList<Item: CellViewModel>: NSObject, UICollectionViewD
 
   /// Called when the user swipe-deletes an item. When set and ``trailingSwipeActionsProvider``
   /// is `nil`, a trailing destructive "Delete" swipe action is provided automatically.
+  ///
+  /// - Important: The caller is responsible for removing the item from the data source
+  ///   after this callback fires. The list does not automatically mutate its snapshot.
   public var onDelete: (@MainActor (Item) -> Void)?
 
   /// Closure that returns trailing swipe actions for a given item.
@@ -166,7 +174,10 @@ public final class OutlineList<Item: CellViewModel>: NSObject, UICollectionViewD
   }
 
   public func collectionView(_: UICollectionView, didDeselectItemAt indexPath: IndexPath) {
-    guard let item = dataSource.itemIdentifier(for: indexPath) else { return }
+    guard let item = dataSource.itemIdentifier(for: indexPath) else {
+      assertionFailure("Item not found for indexPath \(indexPath)")
+      return
+    }
     onDeselect?(item)
   }
 

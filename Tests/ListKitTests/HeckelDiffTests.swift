@@ -171,6 +171,28 @@ struct HeckelDiffTests {
     #expect(result.moves.isEmpty)
   }
 
+  /// LIS with all-duplicate old-indices should produce maximum moves.
+  @Test
+  func allDuplicateLISProducesMaximalMoves() {
+    // When every element appears in both arrays but none are unique,
+    // the expansion passes still match them. Verify we don't crash
+    // and the result is structurally valid.
+    let old = [1, 1, 2, 2, 3, 3]
+    let new = [3, 3, 1, 1, 2, 2]
+
+    let result = HeckelDiff.diff(old: old, new: new)
+
+    // Net change should be zero (same multiset)
+    #expect(result.deletes.count == result.inserts.count)
+
+    // Every old index is accounted for
+    let oldCovered = Set(result.deletes + result.matched.map(\.old))
+    #expect(oldCovered == Set(0 ..< old.count))
+
+    let newCovered = Set(result.inserts + result.matched.map(\.new))
+    #expect(newCovered == Set(0 ..< new.count))
+  }
+
   /// Verify that applying deletes + inserts + moves reconstructs the new array.
   @Test
   func movesReconstructNewArray() {

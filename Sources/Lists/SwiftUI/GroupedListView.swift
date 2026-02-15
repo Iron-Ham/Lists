@@ -17,6 +17,7 @@ public struct GroupedListView<SectionID: Hashable & Sendable, Item: CellViewMode
     appearance: UICollectionLayoutListConfiguration.Appearance = .insetGrouped,
     showsSeparators: Bool = true,
     onSelect: (@MainActor (Item) -> Void)? = nil,
+    onDeselect: (@MainActor (Item) -> Void)? = nil,
     onDelete: (@MainActor (Item) -> Void)? = nil,
     trailingSwipeActionsProvider: (@MainActor (Item) -> UISwipeActionsConfiguration?)? = nil,
     leadingSwipeActionsProvider: (@MainActor (Item) -> UISwipeActionsConfiguration?)? = nil,
@@ -27,6 +28,7 @@ public struct GroupedListView<SectionID: Hashable & Sendable, Item: CellViewMode
     self.appearance = appearance
     self.showsSeparators = showsSeparators
     self.onSelect = onSelect
+    self.onDeselect = onDeselect
     self.onDelete = onDelete
     self.trailingSwipeActionsProvider = trailingSwipeActionsProvider
     self.leadingSwipeActionsProvider = leadingSwipeActionsProvider
@@ -77,6 +79,8 @@ public struct GroupedListView<SectionID: Hashable & Sendable, Item: CellViewMode
   public let showsSeparators: Bool
   /// Called when the user taps an item.
   public var onSelect: (@MainActor (Item) -> Void)?
+  /// Called when the user deselects an item (relevant when `allowsMultipleSelection` is enabled).
+  public var onDeselect: (@MainActor (Item) -> Void)?
   /// Called when the user swipe-deletes an item. When set and ``trailingSwipeActionsProvider``
   /// is `nil`, a trailing destructive "Delete" swipe action is provided automatically.
   public var onDelete: (@MainActor (Item) -> Void)?
@@ -98,6 +102,7 @@ public struct GroupedListView<SectionID: Hashable & Sendable, Item: CellViewMode
   public func makeUIView(context: Context) -> UICollectionView {
     let list = GroupedList<SectionID, Item>(appearance: appearance, showsSeparators: showsSeparators)
     list.onSelect = onSelect
+    list.onDeselect = onDeselect
     list.onDelete = onDelete
     list.trailingSwipeActionsProvider = trailingSwipeActionsProvider
     list.leadingSwipeActionsProvider = leadingSwipeActionsProvider
@@ -122,6 +127,7 @@ public struct GroupedListView<SectionID: Hashable & Sendable, Item: CellViewMode
   public func updateUIView(_ collectionView: UICollectionView, context: Context) {
     guard let list = context.coordinator.list else { return }
     list.onSelect = onSelect
+    list.onDeselect = onDeselect
     list.onDelete = onDelete
     list.trailingSwipeActionsProvider = trailingSwipeActionsProvider
     list.leadingSwipeActionsProvider = leadingSwipeActionsProvider
@@ -158,6 +164,7 @@ extension GroupedListView {
     showsSeparators: Bool = true,
     accessories: [ListAccessory] = [],
     onSelect: (@MainActor (Data) -> Void)? = nil,
+    onDeselect: (@MainActor (Data) -> Void)? = nil,
     onDelete: (@MainActor (Data) -> Void)? = nil,
     trailingSwipeActionsProvider: (@MainActor (Data) -> UISwipeActionsConfiguration?)? = nil,
     leadingSwipeActionsProvider: (@MainActor (Data) -> UISwipeActionsConfiguration?)? = nil,
@@ -180,6 +187,9 @@ extension GroupedListView {
 
     if let onSelect {
       self.onSelect = { item in onSelect(item.data) }
+    }
+    if let onDeselect {
+      self.onDeselect = { item in onDeselect(item.data) }
     }
     if let onDelete {
       self.onDelete = { item in onDelete(item.data) }

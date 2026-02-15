@@ -103,6 +103,67 @@ struct CollectionViewDiffableDataSourceTests {
     #expect(current.itemIdentifiers == [1, 2])
   }
 
+  @Test
+  func moveItemAtUpdatesSnapshot() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    var snapshot = DiffableDataSourceSnapshot<String, Int>()
+    snapshot.appendSections(["A"])
+    snapshot.appendItems([1, 2, 3], toSection: "A")
+    await ds.applySnapshotUsingReloadData(snapshot)
+
+    // Move item at position 0 to position 2
+    ds.collectionView(cv, moveItemAt: IndexPath(item: 0, section: 0), to: IndexPath(item: 2, section: 0))
+
+    let current = ds.snapshot()
+    #expect(current.itemIdentifiers == [2, 3, 1])
+  }
+
+  @Test
+  func moveItemAtAcrossSectionsUpdatesSnapshot() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    var snapshot = DiffableDataSourceSnapshot<String, Int>()
+    snapshot.appendSections(["A", "B"])
+    snapshot.appendItems([1, 2], toSection: "A")
+    snapshot.appendItems([3, 4], toSection: "B")
+    await ds.applySnapshotUsingReloadData(snapshot)
+
+    // Move item 1 from section A to the beginning of section B
+    ds.collectionView(cv, moveItemAt: IndexPath(item: 0, section: 0), to: IndexPath(item: 0, section: 1))
+
+    let current = ds.snapshot()
+    #expect(current.itemIdentifiers(inSection: "A") == [2])
+    #expect(current.itemIdentifiers(inSection: "B") == [1, 3, 4])
+  }
+
+  @Test
+  func didMoveItemHandlerIsCalled() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    var snapshot = DiffableDataSourceSnapshot<String, Int>()
+    snapshot.appendSections(["A"])
+    snapshot.appendItems([1, 2, 3], toSection: "A")
+    await ds.applySnapshotUsingReloadData(snapshot)
+
+    var calledSource: IndexPath?
+    var calledDest: IndexPath?
+    ds.didMoveItemHandler = { source, dest in
+      calledSource = source
+      calledDest = dest
+    }
+
+    let source = IndexPath(item: 0, section: 0)
+    let dest = IndexPath(item: 2, section: 0)
+    ds.collectionView(cv, moveItemAt: source, to: dest)
+
+    #expect(calledSource == source)
+    #expect(calledDest == dest)
+  }
+
   // MARK: Private
 
   private func makeCollectionView() -> UICollectionView {
