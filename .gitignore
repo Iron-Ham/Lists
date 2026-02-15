@@ -9,6 +9,9 @@ DerivedData/
 .swiftpm/
 Package.resolved
 
+# Development
+.claudio/
+
 # Tuist
 Derived/
 
