@@ -33,6 +33,16 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         title: "Chat",
         icon: "bubble.left.and.bubble.right"
       ),
+      makeTab(
+        ListsChatExampleViewController(),
+        title: "Chat Lists",
+        icon: "bubble.left.and.text.bubble.right"
+      ),
+      makeTab(
+        ListKitChatExampleViewController(),
+        title: "Chat ListKit",
+        icon: "ellipsis.message"
+      ),
     ]
 
     window = UIWindow(windowScene: windowScene)

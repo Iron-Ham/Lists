@@ -22,7 +22,11 @@ Example/
     ├── MixedExampleViewController.swift      — Mixed cell types
     ├── SwiftUIExampleViewController.swift    — SwiftUI wrappers hosted in UIKit
     ├── SwiftUIWrappersExampleView.swift      — Pure SwiftUI list views
-    └── ChatExampleView.swift                — Chat UI example
+    ├── ChatExampleView.swift                — Chat UI (SwiftUI + SimpleListView)
+    ├── ChatShared.swift                     — Shared chat types, bubble view, scroll protocol
+    ├── ChatInputBar.swift                   — Shared UIKit input bar
+    ├── ListsChatExampleViewController.swift — Chat UI (UIKit + SimpleList + CellViewModel)
+    └── ListKitChatExampleViewController.swift — Chat UI (UIKit + raw CollectionViewDiffableDataSource)
 ```
 
 ## Conventions

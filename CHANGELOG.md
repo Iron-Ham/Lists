@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **UIKit chat examples**: Two new UIKit counterparts to the existing SwiftUI chat example — `ListsChatExampleViewController` (`SimpleList` + `CellViewModel` + `UIHostingConfiguration`) and `ListKitChatExampleViewController` (raw `CollectionViewDiffableDataSource` with pure UIKit cells and manual cell reconfiguration).
+- **Shared chat input bar**: Reusable `ChatInputBar` UIKit view with keyboard layout guide support.
+
 ### Changed
 
 - **AGENTS.md pre-commit documentation check**: Agents are now prompted to reflect on whether they've discovered new codebase knowledge before every commit, and to update or create `AGENTS.md` files accordingly.
