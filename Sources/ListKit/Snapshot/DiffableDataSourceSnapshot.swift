@@ -355,6 +355,19 @@ public struct DiffableDataSourceSnapshot<
     return sectionItemArrays[idx].count
   }
 
+  /// Returns whether the snapshot contains the specified item.
+  public func contains(_ identifier: ItemIdentifierType) -> Bool {
+    if let map = _itemToSection {
+      return map[identifier] != nil
+    }
+    return sectionItemArrays.contains { $0.contains(identifier) }
+  }
+
+  /// Returns whether the snapshot contains the specified section.
+  public func contains(section identifier: SectionIdentifierType) -> Bool {
+    sectionIndex[identifier] != nil
+  }
+
   // MARK: Internal
 
   /// Fast path for data source queries — avoids section ID → index lookup.

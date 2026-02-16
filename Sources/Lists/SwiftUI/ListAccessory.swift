@@ -112,9 +112,7 @@ public enum ListAccessory: @unchecked Sendable, Hashable {
       assert((0.0...1.0).contains(value), "Progress value \(value) outside expected range 0.0...1.0")
       let progressView = UIProgressView(progressViewStyle: .default)
       progressView.progress = Float(value)
-      progressView.translatesAutoresizingMaskIntoConstraints = false
-      progressView.widthAnchor.constraint(equalToConstant: 60).isActive = true
-      return .customView(configuration: .init(customView: progressView, placement: .trailing()))
+      return .customView(configuration: .init(customView: progressView, placement: .trailing(), reservedLayoutWidth: .custom(60)))
 
     case .activityIndicator:
       let spinner = UIActivityIndicatorView(style: .medium)

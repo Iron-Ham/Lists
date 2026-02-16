@@ -45,7 +45,12 @@ public final class ListDataSource<SectionID: Hashable & Sendable, Item: CellView
   }
 
   /// Applies the given snapshot, computing and animating the minimal diff.
+  ///
+  /// When `Item` conforms to ``ContentEquatable``, items whose identity matches
+  /// but whose content has changed are automatically marked for reconfiguration.
   public func apply(_ snapshot: Snapshot, animatingDifferences: Bool = true) async {
+    var snapshot = snapshot
+    autoReconfigure(old: dataSource.snapshot(), new: &snapshot)
     await dataSource.apply(snapshot, animatingDifferences: animatingDifferences)
   }
 
@@ -61,7 +66,7 @@ public final class ListDataSource<SectionID: Hashable & Sendable, Item: CellView
       snapshot.appendSections([section.id])
       snapshot.appendItems(section.items, toSection: section.id)
     }
-    await dataSource.apply(snapshot, animatingDifferences: animatingDifferences)
+    await apply(snapshot, animatingDifferences: animatingDifferences)
   }
 
   /// Applies sections built with the ``SnapshotBuilder`` result builder DSL.
@@ -75,7 +80,7 @@ public final class ListDataSource<SectionID: Hashable & Sendable, Item: CellView
       snapshot.appendSections([section.id])
       snapshot.appendItems(section.items, toSection: section.id)
     }
-    await dataSource.apply(snapshot, animatingDifferences: animatingDifferences)
+    await apply(snapshot, animatingDifferences: animatingDifferences)
   }
 
   /// Applies a hierarchical section snapshot to a specific section for outline-style content.
@@ -116,5 +121,39 @@ public final class ListDataSource<SectionID: Hashable & Sendable, Item: CellView
 
   private let registrar: CellRegistrar<Item>
   private let dataSource: CollectionViewDiffableDataSource<SectionID, Item>
+
+  /// Detects content changes for ``ContentEquatable`` items and marks them for reconfiguration.
+  ///
+  /// For items that match by identity (Hashable/Equatable) in both old and new snapshots,
+  /// checks `isContentEqual(to:)`. Items whose content differs are added to the new snapshot's
+  /// `reconfiguredItemIdentifiers`, triggering an in-place cell update on the next apply.
+  private func autoReconfigure(old: Snapshot, new: inout Snapshot) {
+    guard Item.self is any ContentEquatable.Type else { return }
+
+    let oldItems = old.itemIdentifiers
+    guard !oldItems.isEmpty else { return }
+
+    var oldLookup = [Item: Item]()
+    oldLookup.reserveCapacity(oldItems.count)
+    for item in oldItems {
+      oldLookup[item] = item
+    }
+
+    var toReconfigure = [Item]()
+    for newItem in new.itemIdentifiers {
+      guard let oldItem = oldLookup[newItem] else { continue }
+      guard let newCE = newItem as? any ContentEquatable else {
+        assertionFailure("Item passed type-level ContentEquatable check but failed instance cast")
+        continue
+      }
+      if !newCE.isContentEqualTypeErased(to: oldItem) {
+        toReconfigure.append(newItem)
+      }
+    }
+
+    if !toReconfigure.isEmpty {
+      new.reconfigureItems(toReconfigure)
+    }
+  }
 
 }

@@ -13,7 +13,7 @@ final class GroupedListExampleViewController: UIViewController {
     case about
   }
 
-  struct SettingItem: CellViewModel, Identifiable {
+  struct SettingItem: ListCellViewModel, Identifiable {
 
     // MARK: Lifecycle
 
@@ -26,8 +26,6 @@ final class GroupedListExampleViewController: UIViewController {
 
     // MARK: Internal
 
-    typealias Cell = UICollectionViewListCell
-
     let id: String
     let title: String
     let icon: String
@@ -35,12 +33,12 @@ final class GroupedListExampleViewController: UIViewController {
 
     @MainActor
     func configure(_ cell: UICollectionViewListCell) {
-      var content = cell.defaultContentConfiguration()
-      content.text = title
-      content.image = UIImage(systemName: icon)
-      content.secondaryText = detail
-      cell.accessories = [.disclosureIndicator()]
-      cell.contentConfiguration = content
+      cell.setListContent(
+        text: title,
+        secondaryText: detail,
+        image: UIImage(systemName: icon),
+        accessories: [.disclosureIndicator]
+      )
     }
   }
 

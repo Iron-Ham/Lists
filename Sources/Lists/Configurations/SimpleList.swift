@@ -26,6 +26,7 @@ public final class SimpleList<Item: CellViewModel>: NSObject, UICollectionViewDe
 
   deinit {
     applyTask?.cancel()
+    refreshManager.cancel()
   }
 
   /// Creates a simple list with the specified list appearance.
@@ -68,6 +69,7 @@ public final class SimpleList<Item: CellViewModel>: NSObject, UICollectionViewDe
     dataSource = ListDataSource(collectionView: collectionView)
     super.init()
     collectionView.delegate = self
+    refreshManager.attach(to: collectionView)
 
     bridge.setDataSource(dataSource)
     // trailingSwipeActionsProvider takes precedence; onDelete is the fallback.
@@ -168,6 +170,19 @@ public final class SimpleList<Item: CellViewModel>: NSObject, UICollectionViewDe
   public var isEditing: Bool {
     get { collectionView.isEditing }
     set { collectionView.isEditing = newValue }
+  }
+
+  /// An async closure invoked on pull-to-refresh. The refresh control is dismissed
+  /// automatically when the closure returns.
+  ///
+  /// ```swift
+  /// list.onRefresh = {
+  ///     let items = try? await api.fetchItems()
+  ///     await list.setItems(items ?? [])
+  /// }
+  /// ```
+  public var onRefresh: (@MainActor () async -> Void)? {
+    didSet { refreshManager.onRefresh = onRefresh }
   }
 
   /// Called when the user reorders an item via drag-and-drop.
@@ -298,6 +313,7 @@ public final class SimpleList<Item: CellViewModel>: NSObject, UICollectionViewDe
 
   private let dataSource: ListDataSource<Int, Item>
   private let bridge: ListConfigurationBridge<Int, Item>
+  private let refreshManager = RefreshControlManager()
   private var applyTask: Task<Void, Never>?
 
   private func configureReorderIfNeeded() {

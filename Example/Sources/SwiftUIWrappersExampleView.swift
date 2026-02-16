@@ -102,10 +102,6 @@ private struct SimpleDemoView: View {
           config.topSeparatorInsets = .init(top: 0, leading: 60, bottom: 0, trailing: 0)
         }
         return config
-      },
-      onRefresh: {
-        try? await Task.sleep(for: .seconds(1))
-        fruits.shuffle()
       }
     ) { fruit in
       HStack {
@@ -114,6 +110,10 @@ private struct SimpleDemoView: View {
         Text(fruit.name)
       }
       .padding(.vertical, 4)
+    }
+    .onRefresh {
+      try? await Task.sleep(for: .seconds(1))
+      fruits.shuffle()
     }
   }
 
@@ -153,39 +153,39 @@ private struct GroupedDemoView: View {
           header: "Frameworks",
           footer: "\(frameworks.count) items"
         ),
-      ],
-      onSelect: { item in
-        print("Selected: \(item.name)")
-      },
-      onDelete: { item in
-        languages.removeAll { $0.id == item.id }
-        frameworks.removeAll { $0.id == item.id }
-      },
-      leadingSwipeActionsProvider: { item in
-        let flag = UIContextualAction(style: .normal, title: "Flag") { _, _, completion in
-          print("Flagged \(item.name)")
-          completion(true)
-        }
-        flag.image = UIImage(systemName: "flag.fill")
-        flag.backgroundColor = .systemIndigo
-        return UISwipeActionsConfiguration(actions: [flag])
-      },
-      separatorHandler: { item, config in
-        // Hide separator for the last item in each section
-        if item == languages.last || item == frameworks.last {
-          var config = config
-          config.bottomSeparatorVisibility = .hidden
-          return config
-        }
-        return config
-      },
-      onRefresh: {
-        // Simulate network fetch
-        try? await Task.sleep(for: .seconds(1))
-        languages.shuffle()
-        frameworks.shuffle()
-      }
+      ]
     )
+    .onSelect { item in
+      print("Selected: \(item.name)")
+    }
+    .onDelete { item in
+      languages.removeAll { $0.id == item.id }
+      frameworks.removeAll { $0.id == item.id }
+    }
+    .leadingSwipeActions { item in
+      let flag = UIContextualAction(style: .normal, title: "Flag") { _, _, completion in
+        print("Flagged \(item.name)")
+        completion(true)
+      }
+      flag.image = UIImage(systemName: "flag.fill")
+      flag.backgroundColor = .systemIndigo
+      return UISwipeActionsConfiguration(actions: [flag])
+    }
+    .separatorHandler { item, config in
+      // Hide separator for the last item in each section
+      if item == languages.last || item == frameworks.last {
+        var config = config
+        config.bottomSeparatorVisibility = .hidden
+        return config
+      }
+      return config
+    }
+    .onRefresh {
+      // Simulate network fetch
+      try? await Task.sleep(for: .seconds(1))
+      languages.shuffle()
+      frameworks.shuffle()
+    }
     .overlay(alignment: .bottom) {
       Button("Shuffle") {
         languages.shuffle()
@@ -245,21 +245,21 @@ private struct OutlineDemoView: View {
           }
           return UIMenu(children: [copy])
         })
-      },
-      onRefresh: {
-        try? await Task.sleep(for: .seconds(1))
-        // Randomize expansion state
-        items = items.map { topLevel in
-          OutlineItem(
-            item: topLevel.item,
-            children: topLevel.children.shuffled(),
-            isExpanded: Bool.random()
-          )
-        }
       }
     ) { category in
       Text(category.name)
         .padding(.vertical, 2)
+    }
+    .onRefresh {
+      try? await Task.sleep(for: .seconds(1))
+      // Randomize expansion state
+      items = items.map { topLevel in
+        OutlineItem(
+          item: topLevel.item,
+          children: topLevel.children.shuffled(),
+          isExpanded: Bool.random()
+        )
+      }
     }
   }
 

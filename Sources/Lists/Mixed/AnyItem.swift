@@ -24,6 +24,7 @@ public struct AnyItem: Hashable, Sendable {
     _dequeue = { collectionView, indexPath, registrar in
       registrar.dequeue(from: collectionView, at: indexPath, item: item)
     }
+    _isContentEquatable = item is any ContentEquatable
   }
 
   // MARK: Public
@@ -47,12 +48,22 @@ public struct AnyItem: Hashable, Sendable {
 
   let _dequeue: @MainActor @Sendable (UICollectionView, IndexPath, DynamicCellRegistrar) -> UICollectionViewCell
 
+  /// Returns whether two `AnyItem` values wrapping the same `ContentEquatable` type
+  /// have equal content. Returns `true` (no change) when the wrapped type does not
+  /// conform to `ContentEquatable` or the types differ.
+  func isContentEqual(to other: AnyItem) -> Bool {
+    guard _typeID == other._typeID else { return true }
+    guard _isContentEquatable, let ce = _wrapped as? any ContentEquatable else { return true }
+    return ce.isContentEqualTypeErased(to: other._wrapped)
+  }
+
   // MARK: Private
 
   private let _typeID: ObjectIdentifier
   private let _cachedHash: Int
   private let _isEqual: @Sendable (any Sendable, any Sendable) -> Bool
   private let _wrapped: any Sendable
+  private let _isContentEquatable: Bool
 
 }
 
