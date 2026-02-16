@@ -145,6 +145,9 @@ public struct SimpleListView<Item: CellViewModel>: UIViewRepresentable {
   public var separatorHandler: (@MainActor (Item, UIListSeparatorConfiguration) -> UIListSeparatorConfiguration)?
   /// An async closure invoked on pull-to-refresh. The refresh control is dismissed when the closure returns.
   public var onRefresh: (@MainActor () async -> Void)?
+  /// Called when the user reorders an item via drag-and-drop.
+  /// Setting this enables the reorder interaction on the collection view.
+  public var onMove: (@MainActor (_ source: IndexPath, _ destination: IndexPath) -> Void)?
   /// Called once when the underlying `UICollectionView` is created. Use this to store a reference
   /// for direct UIKit access (e.g. animated layout invalidation).
   public var collectionViewHandler: (@MainActor (UICollectionView) -> Void)?
@@ -174,6 +177,7 @@ public struct SimpleListView<Item: CellViewModel>: UIViewRepresentable {
     list.leadingSwipeActionsProvider = leadingSwipeActionsProvider
     list.contextMenuProvider = contextMenuProvider
     list.separatorHandler = separatorHandler
+    list.onMove = onMove
     list.scrollViewDelegate = scrollViewDelegate
     list.allowsMultipleSelection = allowsMultipleSelection
     list.allowsSelectionDuringEditing = allowsSelectionDuringEditing
@@ -216,6 +220,7 @@ public struct SimpleListView<Item: CellViewModel>: UIViewRepresentable {
     list.leadingSwipeActionsProvider = leadingSwipeActionsProvider
     list.contextMenuProvider = contextMenuProvider
     list.separatorHandler = separatorHandler
+    list.onMove = onMove
     list.scrollViewDelegate = scrollViewDelegate
     list.allowsMultipleSelection = allowsMultipleSelection
     list.allowsSelectionDuringEditing = allowsSelectionDuringEditing

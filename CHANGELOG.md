@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`MixedSection` header/footer support**: Optional `header` and `footer` parameters on `MixedSection`, wired through `MixedListDataSource.apply(content:)` with `headerForSection(_:)`/`footerForSection(_:)` accessors and a `configureListHeaderFooterProvider()` convenience method for automatic supplementary view rendering.
+- **`MixedListDataSource` reorder support**: `canMoveItemHandler` and `didMoveItemHandler` properties for drag-and-drop reordering parity with `ListDataSource`.
+- **Section query methods on `GroupedList`**: `sectionIdentifier(for:)`, `index(for:)`, and `items(in:)` for section-level navigation.
+- **`OutlineList` programmatic expand/collapse**: `expand(_:animated:)`, `collapse(_:animated:)`, and `isExpanded(_:)` methods for controlling outline hierarchy without rebuilding the tree.
+- **`onMove` SwiftUI modifier**: `.onMove()` modifier on `SimpleListView` and `GroupedListView` for drag-and-drop reordering, completing the SwiftUI wrapper API.
+- **Convenience query properties**: `numberOfItems`, `numberOfSections`, `selectedItems`, and `deselectAll(animated:)` on all three configurations (`SimpleList`, `GroupedList`, `OutlineList`).
+- **`SectionModel.mapItems(_:)`**: Transforms items within a section while preserving metadata, matching `OutlineItem.mapItems(_:)` for API consistency.
+- **`SectionModel` `Identifiable` conformance**: Enables direct use in SwiftUI `ForEach` and other `Identifiable`-requiring contexts.
+- **`OutlineItem` `Identifiable` conformance**: Uses `item` as identity, enabling direct use in SwiftUI contexts.
+
 ## [0.5.0] - 2026-02-16
 
 ### Added

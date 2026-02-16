@@ -157,4 +157,133 @@ struct GroupedListTests {
     list.onMove = nil
     #expect(list.collectionView.dragInteractionEnabled == false)
   }
+
+  @Test
+  func sectionIdentifierForIndex() async {
+    let list = GroupedList<String, TextItem>()
+    await list.setSections([
+      SectionModel(id: "alpha", items: [TextItem(text: "A")]),
+      SectionModel(id: "beta", items: [TextItem(text: "B")]),
+    ], animatingDifferences: false)
+
+    #expect(list.sectionIdentifier(for: 0) == "alpha")
+    #expect(list.sectionIdentifier(for: 1) == "beta")
+    #expect(list.sectionIdentifier(for: 99) == nil)
+  }
+
+  @Test
+  func indexForSectionIdentifier() async {
+    let list = GroupedList<String, TextItem>()
+    await list.setSections([
+      SectionModel(id: "alpha", items: [TextItem(text: "A")]),
+      SectionModel(id: "beta", items: [TextItem(text: "B")]),
+    ], animatingDifferences: false)
+
+    #expect(list.index(for: "alpha") == 0)
+    #expect(list.index(for: "beta") == 1)
+    #expect(list.index(for: "nonexistent") == nil)
+  }
+
+  @Test
+  func sectionQueryOnEmptyList() {
+    let list = GroupedList<String, TextItem>()
+    #expect(list.sectionIdentifier(for: 0) == nil)
+    #expect(list.index(for: "any") == nil)
+  }
+
+  @Test
+  func itemsInSection() async {
+    let a = TextItem(text: "A")
+    let b = TextItem(text: "B")
+    let c = TextItem(text: "C")
+
+    let list = GroupedList<String, TextItem>()
+    await list.setSections([
+      SectionModel(id: "first", items: [a, b]),
+      SectionModel(id: "second", items: [c]),
+    ], animatingDifferences: false)
+
+    let firstItems = list.items(in: "first")
+    #expect(firstItems?.count == 2)
+    #expect(firstItems?[0] == a)
+
+    let secondItems = list.items(in: "second")
+    #expect(secondItems?.count == 1)
+
+    #expect(list.items(in: "missing") == nil)
+  }
+
+  @Test
+  func itemsInEmptySection() async {
+    let list = GroupedList<String, TextItem>()
+    await list.setSections([
+      SectionModel(id: "empty", items: [], header: "Empty")
+    ], animatingDifferences: false)
+
+    let items = list.items(in: "empty")
+    #expect(items != nil)
+    #expect(items?.isEmpty == true)
+  }
+
+  @Test
+  func numberOfItemsAndSections() async {
+    let list = GroupedList<String, TextItem>()
+    await list.setSections([
+      SectionModel(id: "a", items: [TextItem(text: "1"), TextItem(text: "2")]),
+      SectionModel(id: "b", items: [TextItem(text: "3")]),
+    ], animatingDifferences: false)
+
+    #expect(list.numberOfItems == 3)
+    #expect(list.numberOfSections == 2)
+  }
+
+  @Test
+  func selectedItemsDefaultsToEmpty() {
+    let list = GroupedList<String, TextItem>()
+    #expect(list.selectedItems.isEmpty)
+  }
+
+  @Test
+  func deselectAllClearsSelection() async {
+    let list = GroupedList<String, TextItem>()
+    list.allowsMultipleSelection = true
+    await list.setSections([
+      SectionModel(id: "A", items: [TextItem(text: "1"), TextItem(text: "2")])
+    ], animatingDifferences: false)
+
+    list.collectionView.selectItem(at: IndexPath(item: 0, section: 0), animated: false, scrollPosition: [])
+    list.collectionView.selectItem(at: IndexPath(item: 1, section: 0), animated: false, scrollPosition: [])
+    #expect((list.collectionView.indexPathsForSelectedItems ?? []).count == 2)
+
+    list.deselectAll(animated: false)
+    #expect((list.collectionView.indexPathsForSelectedItems ?? []).isEmpty)
+  }
+
+  @Test
+  func sectionModelIsIdentifiable() {
+    let section = SectionModel(id: "test", items: [TextItem(text: "A")])
+    #expect(section.id == "test")
+    let _: any Identifiable = section
+  }
+
+  @Test
+  func sectionModelMapItemsTransformsItems() {
+    let section = SectionModel(id: "test", items: [1, 2, 3], header: "H", footer: "F")
+    let mapped = section.mapItems { String($0) }
+
+    #expect(mapped.id == "test")
+    #expect(mapped.items == ["1", "2", "3"])
+    #expect(mapped.header == "H")
+    #expect(mapped.footer == "F")
+  }
+
+  @Test
+  func sectionModelMapItemsPreservesNilHeaderFooter() {
+    let section = SectionModel(id: "test", items: [42])
+    let mapped = section.mapItems { $0 * 2 }
+
+    #expect(mapped.items == [84])
+    #expect(mapped.header == nil)
+    #expect(mapped.footer == nil)
+  }
 }

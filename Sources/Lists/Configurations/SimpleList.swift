@@ -192,6 +192,21 @@ public final class SimpleList<Item: CellViewModel>: NSObject, UICollectionViewDe
     didSet { configureReorderIfNeeded() }
   }
 
+  /// The total number of items across all sections.
+  public var numberOfItems: Int {
+    dataSource.snapshot().numberOfItems
+  }
+
+  /// The number of sections in the list.
+  public var numberOfSections: Int {
+    dataSource.snapshot().numberOfSections
+  }
+
+  /// The currently selected items, derived from the collection view's selected index paths.
+  public var selectedItems: [Item] {
+    (collectionView.indexPathsForSelectedItems ?? []).compactMap { bridge.itemIdentifier(for: $0) }
+  }
+
   /// Replaces the list's items, computing and animating the diff.
   ///
   /// Cancels any previously queued apply so only the most recent snapshot is applied,
@@ -233,6 +248,15 @@ public final class SimpleList<Item: CellViewModel>: NSObject, UICollectionViewDe
   /// Returns the index path for the specified item, or `nil` if not found.
   public func indexPath(for item: Item) -> IndexPath? {
     bridge.indexPath(for: item)
+  }
+
+  /// Deselects all currently selected items.
+  ///
+  /// - Parameter animated: Whether the deselection should be animated.
+  public func deselectAll(animated: Bool = true) {
+    for indexPath in collectionView.indexPathsForSelectedItems ?? [] {
+      collectionView.deselectItem(at: indexPath, animated: animated)
+    }
   }
 
   /// Programmatically scrolls to the specified item.

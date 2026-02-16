@@ -56,6 +56,18 @@ extension GroupedListView {
     return copy
   }
 
+  /// Sets a handler called when the user reorders an item via drag-and-drop.
+  ///
+  /// The list updates its internal snapshot automatically; use this to persist the new order.
+  /// Setting this enables the reorder interaction on the collection view.
+  public func onMove(
+    _ handler: @escaping @MainActor (_ source: IndexPath, _ destination: IndexPath) -> Void
+  ) -> Self {
+    var copy = self
+    copy.onMove = handler
+    return copy
+  }
+
   /// Sets a handler called when the user swipe-deletes an item.
   ///
   /// When set and no trailing swipe actions provider is configured, a trailing destructive

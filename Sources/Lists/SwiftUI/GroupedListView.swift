@@ -154,6 +154,9 @@ public struct GroupedListView<SectionID: Hashable & Sendable, Item: CellViewMode
   public var footerContentProvider: (@MainActor (SectionID) -> UIContentConfiguration?)?
   /// An async closure invoked on pull-to-refresh.
   public var onRefresh: (@MainActor () async -> Void)?
+  /// Called when the user reorders an item via drag-and-drop.
+  /// Setting this enables the reorder interaction on the collection view.
+  public var onMove: (@MainActor (_ source: IndexPath, _ destination: IndexPath) -> Void)?
   /// Called once when the underlying `UICollectionView` is created. Use this to store a reference
   /// for direct UIKit access (e.g. animated layout invalidation).
   public var collectionViewHandler: (@MainActor (UICollectionView) -> Void)?
@@ -186,6 +189,7 @@ public struct GroupedListView<SectionID: Hashable & Sendable, Item: CellViewMode
     list.separatorHandler = separatorHandler
     list.headerContentProvider = headerContentProvider
     list.footerContentProvider = footerContentProvider
+    list.onMove = onMove
     list.scrollViewDelegate = scrollViewDelegate
     list.allowsMultipleSelection = allowsMultipleSelection
     list.allowsSelectionDuringEditing = allowsSelectionDuringEditing
@@ -231,6 +235,7 @@ public struct GroupedListView<SectionID: Hashable & Sendable, Item: CellViewMode
     list.separatorHandler = separatorHandler
     list.headerContentProvider = headerContentProvider
     list.footerContentProvider = footerContentProvider
+    list.onMove = onMove
     list.scrollViewDelegate = scrollViewDelegate
     list.allowsMultipleSelection = allowsMultipleSelection
     list.allowsSelectionDuringEditing = allowsSelectionDuringEditing
@@ -296,14 +301,7 @@ extension GroupedListView {
     separatorHandler: (@MainActor (Data, UIListSeparatorConfiguration) -> UIListSeparatorConfiguration)? = nil,
     @ViewBuilder content: @escaping @MainActor (Data) -> some View
   ) where Item == InlineCellViewModel<Data> {
-    let mapped: [SectionModel<SectionID, InlineCellViewModel<Data>>] = sections.map { section in
-      SectionModel(
-        id: section.id,
-        items: section.items.map { InlineCellViewModel(data: $0, accessories: accessories, content: content) },
-        header: section.header,
-        footer: section.footer
-      )
-    }
+    let mapped = sections.map { $0.mapItems { InlineCellViewModel(data: $0, accessories: accessories, content: content) } }
     self.sections = mapped
     self.appearance = appearance
     self.showsSeparators = showsSeparators

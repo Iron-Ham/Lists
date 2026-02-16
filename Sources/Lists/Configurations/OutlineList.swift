@@ -7,7 +7,7 @@ import UIKit
 ///
 /// Each `OutlineItem` wraps a value and optionally has children. The `isExpanded` flag
 /// controls whether children are visible when the outline is rendered.
-public struct OutlineItem<Item: Hashable & Sendable>: Sendable, Equatable {
+public struct OutlineItem<Item: Hashable & Sendable>: Sendable, Equatable, Identifiable {
 
   // MARK: Lifecycle
 
@@ -26,6 +26,11 @@ public struct OutlineItem<Item: Hashable & Sendable>: Sendable, Equatable {
   public let children: [OutlineItem<Item>]
   /// Whether this node's children should be visible.
   public let isExpanded: Bool
+
+  /// The identity of this outline item, derived from its ``item`` value.
+  public var id: Item {
+    item
+  }
 
   /// Recursively transforms every `item` in this tree using the given closure.
   public func mapItems<T: Hashable & Sendable>(_ transform: (Item) -> T) -> OutlineItem<T> {
@@ -221,6 +226,21 @@ public final class OutlineList<Item: CellViewModel>: NSObject, UICollectionViewD
     set { collectionView.isEditing = newValue }
   }
 
+  /// The total number of items across all sections.
+  public var numberOfItems: Int {
+    dataSource.snapshot().numberOfItems
+  }
+
+  /// The number of sections in the list.
+  public var numberOfSections: Int {
+    dataSource.snapshot().numberOfSections
+  }
+
+  /// The currently selected items, derived from the collection view's selected index paths.
+  public var selectedItems: [Item] {
+    (collectionView.indexPathsForSelectedItems ?? []).compactMap { bridge.itemIdentifier(for: $0) }
+  }
+
   /// Replaces the outline's tree, computing and animating the diff.
   ///
   /// Uses `apply(_:to:animatingDifferences:)` with a section snapshot so UIKit handles
@@ -246,6 +266,7 @@ public final class OutlineList<Item: CellViewModel>: NSObject, UICollectionViewD
 
       var sectionSnapshot = DiffableDataSourceSectionSnapshot<Item>()
       appendItems(items, to: nil, in: &sectionSnapshot)
+      currentSectionSnapshot = sectionSnapshot
       await dataSource.apply(sectionSnapshot, to: 0, animatingDifferences: animatingDifferences)
     }
     applyTask = task
@@ -254,6 +275,60 @@ public final class OutlineList<Item: CellViewModel>: NSObject, UICollectionViewD
     } onCancel: {
       task.cancel()
     }
+  }
+
+  /// Programmatically expands the specified item, making its children visible.
+  ///
+  /// This method participates in the same task serialization chain as ``setItems(_:animatingDifferences:)``
+  /// to prevent interleaved applies.
+  ///
+  /// - Parameters:
+  ///   - item: The item to expand. Must be present in the current outline and have children.
+  ///   - animated: Whether to animate the expansion. Defaults to `true`.
+  public func expand(_ item: Item, animated: Bool = true) async {
+    applyTask?.cancel()
+    let previousTask = applyTask
+    let task = Task { [weak self] in
+      _ = await previousTask?.value
+      guard !Task.isCancelled, let self else { return }
+      guard var sectionSnapshot = currentSectionSnapshot, sectionSnapshot.contains(item) else { return }
+      sectionSnapshot.expand([item])
+      currentSectionSnapshot = sectionSnapshot
+      await dataSource.apply(sectionSnapshot, to: 0, animatingDifferences: animated)
+    }
+    applyTask = task
+    await withTaskCancellationHandler { await task.value } onCancel: { task.cancel() }
+  }
+
+  /// Programmatically collapses the specified item, hiding its children.
+  ///
+  /// This method participates in the same task serialization chain as ``setItems(_:animatingDifferences:)``
+  /// to prevent interleaved applies.
+  ///
+  /// - Parameters:
+  ///   - item: The item to collapse. Must be present in the current outline and have children.
+  ///   - animated: Whether to animate the collapse. Defaults to `true`.
+  public func collapse(_ item: Item, animated: Bool = true) async {
+    applyTask?.cancel()
+    let previousTask = applyTask
+    let task = Task { [weak self] in
+      _ = await previousTask?.value
+      guard !Task.isCancelled, let self else { return }
+      guard var sectionSnapshot = currentSectionSnapshot, sectionSnapshot.contains(item) else { return }
+      sectionSnapshot.collapse([item])
+      currentSectionSnapshot = sectionSnapshot
+      await dataSource.apply(sectionSnapshot, to: 0, animatingDifferences: animated)
+    }
+    applyTask = task
+    await withTaskCancellationHandler { await task.value } onCancel: { task.cancel() }
+  }
+
+  /// Returns whether the specified item is currently expanded.
+  ///
+  /// - Parameter item: The item to check.
+  /// - Returns: `true` if the item is expanded, `false` if collapsed or not found.
+  public func isExpanded(_ item: Item) -> Bool {
+    currentSectionSnapshot?.isExpanded(item) ?? false
   }
 
   /// Replaces the outline's tree using the ``OutlineItemBuilder`` result builder DSL.
@@ -287,6 +362,15 @@ public final class OutlineList<Item: CellViewModel>: NSObject, UICollectionViewD
   /// Returns the index path for the specified item, or `nil` if not found.
   public func indexPath(for item: Item) -> IndexPath? {
     bridge.indexPath(for: item)
+  }
+
+  /// Deselects all currently selected items.
+  ///
+  /// - Parameter animated: Whether the deselection should be animated.
+  public func deselectAll(animated: Bool = true) {
+    for indexPath in collectionView.indexPathsForSelectedItems ?? [] {
+      collectionView.deselectItem(at: indexPath, animated: animated)
+    }
   }
 
   /// Programmatically scrolls to the specified item.
@@ -369,6 +453,7 @@ public final class OutlineList<Item: CellViewModel>: NSObject, UICollectionViewD
   private let bridge: ListConfigurationBridge<Int, Item>
   private let refreshManager = RefreshControlManager()
   private var applyTask: Task<Void, Never>?
+  private var currentSectionSnapshot: DiffableDataSourceSectionSnapshot<Item>?
 
   private func appendItems(
     _ outlineItems: [OutlineItem<Item>],

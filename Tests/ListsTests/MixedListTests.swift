@@ -342,6 +342,33 @@ struct MixedSnapshotBuilderTests {
   }
 
   @Test
+  func sectionWithHeaderAndFooter() {
+    let section = MixedSection("info", header: "Title", footer: "Subtitle") {
+      AlphaItem(value: "a")
+    }
+    #expect(section.header == "Title")
+    #expect(section.footer == "Subtitle")
+    #expect(section.items.count == 1)
+  }
+
+  @Test
+  func sectionHeaderFooterDefaults() {
+    let section = MixedSection("bare") {
+      AlphaItem(value: "a")
+    }
+    #expect(section.header == nil)
+    #expect(section.footer == nil)
+  }
+
+  @Test
+  func sectionInitWithArrayAndHeaderFooter() {
+    let items = [AnyItem(AlphaItem(value: "a"))]
+    let section = MixedSection("test", items: items, header: "H", footer: "F")
+    #expect(section.header == "H")
+    #expect(section.footer == "F")
+  }
+
+  @Test
   func availabilityCheckInMixedItems() {
     @MixedItemsBuilder
     var items: [AnyItem] {
@@ -366,6 +393,125 @@ struct MixedSnapshotBuilderTests {
       }
     }
     #expect(snapshot.numberOfSections == 2)
+  }
+}
+
+// MARK: - MixedListDataSourceTests
+
+@MainActor
+struct MixedListDataSourceTests {
+  @Test
+  func canMoveItemHandlerIsExposed() {
+    let collectionView = UICollectionView(
+      frame: .zero,
+      collectionViewLayout: UICollectionViewCompositionalLayout.list(
+        using: UICollectionLayoutListConfiguration(appearance: .plain)
+      )
+    )
+    let dataSource = MixedListDataSource<String>(collectionView: collectionView)
+
+    #expect(dataSource.canMoveItemHandler == nil)
+    dataSource.canMoveItemHandler = { _ in true }
+    #expect(dataSource.canMoveItemHandler != nil)
+  }
+
+  @Test
+  func didMoveItemHandlerIsExposed() {
+    let collectionView = UICollectionView(
+      frame: .zero,
+      collectionViewLayout: UICollectionViewCompositionalLayout.list(
+        using: UICollectionLayoutListConfiguration(appearance: .plain)
+      )
+    )
+    let dataSource = MixedListDataSource<String>(collectionView: collectionView)
+
+    #expect(dataSource.didMoveItemHandler == nil)
+    var movedSource: IndexPath?
+    var movedDest: IndexPath?
+    dataSource.didMoveItemHandler = { source, dest in
+      movedSource = source
+      movedDest = dest
+    }
+    dataSource.didMoveItemHandler?(IndexPath(item: 0, section: 0), IndexPath(item: 1, section: 0))
+    #expect(movedSource == IndexPath(item: 0, section: 0))
+    #expect(movedDest == IndexPath(item: 1, section: 0))
+  }
+
+  @Test
+  func applyContentPopulatesHeadersAndFooters() async {
+    let collectionView = UICollectionView(
+      frame: .zero,
+      collectionViewLayout: UICollectionViewCompositionalLayout.list(
+        using: UICollectionLayoutListConfiguration(appearance: .plain)
+      )
+    )
+    let dataSource = MixedListDataSource<String>(collectionView: collectionView)
+
+    // Initially no headers/footers
+    #expect(dataSource.headerForSection("info") == nil)
+    #expect(dataSource.footerForSection("info") == nil)
+
+    await dataSource.apply {
+      MixedSection("info", header: "Title", footer: "Subtitle") {
+        AlphaItem(value: "a")
+      }
+      MixedSection("bare") {
+        BetaItem(number: 1)
+      }
+    }
+
+    #expect(dataSource.headerForSection("info") == "Title")
+    #expect(dataSource.footerForSection("info") == "Subtitle")
+    #expect(dataSource.headerForSection("bare") == nil)
+    #expect(dataSource.footerForSection("bare") == nil)
+  }
+
+  @Test
+  func applyContentTrimsRemovedSections() async {
+    let collectionView = UICollectionView(
+      frame: .zero,
+      collectionViewLayout: UICollectionViewCompositionalLayout.list(
+        using: UICollectionLayoutListConfiguration(appearance: .plain)
+      )
+    )
+    let dataSource = MixedListDataSource<String>(collectionView: collectionView)
+
+    await dataSource.apply {
+      MixedSection("first", header: "First") {
+        AlphaItem(value: "a")
+      }
+      MixedSection("second", header: "Second") {
+        BetaItem(number: 1)
+      }
+    }
+
+    #expect(dataSource.headerForSection("first") == "First")
+    #expect(dataSource.headerForSection("second") == "Second")
+
+    // Apply with only "second" — "first" header should be trimmed
+    await dataSource.apply {
+      MixedSection("second", header: "Updated") {
+        BetaItem(number: 2)
+      }
+    }
+
+    #expect(dataSource.headerForSection("first") == nil)
+    #expect(dataSource.headerForSection("second") == "Updated")
+  }
+
+  @Test
+  func configureListHeaderFooterProviderSetsSupplementaryViewProvider() {
+    let collectionView = UICollectionView(
+      frame: .zero,
+      collectionViewLayout: UICollectionViewCompositionalLayout.list(
+        using: UICollectionLayoutListConfiguration(appearance: .plain)
+      )
+    )
+    let dataSource = MixedListDataSource<String>(collectionView: collectionView)
+
+    #expect(dataSource.supplementaryViewProvider == nil)
+    dataSource.configureListHeaderFooterProvider()
+    #expect(dataSource.supplementaryViewProvider != nil)
   }
 }
 
