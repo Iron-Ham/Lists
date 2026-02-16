@@ -45,6 +45,16 @@ public final class MixedListDataSource<SectionID: Hashable & Sendable> {
     set { dataSource.didMoveItemHandler = newValue }
   }
 
+  /// Returns the header text for the given section, or `nil` if none was set.
+  public func headerForSection(_ sectionID: SectionID) -> String? {
+    sectionHeaders[sectionID]
+  }
+
+  /// Returns the footer text for the given section, or `nil` if none was set.
+  public func footerForSection(_ sectionID: SectionID) -> String? {
+    sectionFooters[sectionID]
+  }
+
   /// Applies the given snapshot, computing and animating the minimal diff.
   ///
   /// Items whose wrapped type conforms to ``ContentEquatable`` are automatically
@@ -61,17 +71,51 @@ public final class MixedListDataSource<SectionID: Hashable & Sendable> {
   }
 
   /// Applies sections built with the ``MixedSnapshotBuilder`` result builder DSL.
+  ///
+  /// Header and footer text from each ``MixedSection`` is stored and accessible via
+  /// ``headerForSection(_:)`` and ``footerForSection(_:)``. Call
+  /// ``configureListHeaderFooterProvider()`` to automatically wire these into
+  /// supplementary views when using a list layout with `.supplementary` header/footer modes.
+  ///
+  /// Cancels any previously queued apply so only the most recent snapshot is applied,
+  /// and supports cooperative cancellation from the calling task.
   public func apply(
     animatingDifferences: Bool = true,
     @MixedSnapshotBuilder<SectionID> content: () -> [MixedSection<SectionID>]
   ) async {
     let sections = content()
-    var snapshot = Snapshot()
-    for section in sections {
-      snapshot.appendSections([section.id])
-      snapshot.appendItems(section.items, toSection: section.id)
+    applyTask?.cancel()
+    let previousTask = applyTask
+    let task = Task { [weak self] in
+      _ = await previousTask?.value
+      guard !Task.isCancelled, let self else { return }
+      var snapshot = Snapshot()
+      var newHeaders = [SectionID: String]()
+      var newFooters = [SectionID: String]()
+      for section in sections {
+        snapshot.appendSections([section.id])
+        snapshot.appendItems(section.items, toSection: section.id)
+        if let header = section.header {
+          newHeaders[section.id] = header
+        }
+        if let footer = section.footer {
+          newFooters[section.id] = footer
+        }
+      }
+      // Merge so both old and new sections have valid headers during animation
+      sectionHeaders.merge(newHeaders) { _, new in new }
+      sectionFooters.merge(newFooters) { _, new in new }
+      await apply(snapshot, animatingDifferences: animatingDifferences)
+      // Trim to only current sections after apply completes
+      sectionHeaders = newHeaders
+      sectionFooters = newFooters
     }
-    await apply(snapshot, animatingDifferences: animatingDifferences)
+    applyTask = task
+    await withTaskCancellationHandler {
+      await task.value
+    } onCancel: {
+      task.cancel()
+    }
   }
 
   /// Applies a hierarchical section snapshot to a specific section for outline-style content.
@@ -108,10 +152,60 @@ public final class MixedListDataSource<SectionID: Hashable & Sendable> {
     dataSource.index(for: sectionIdentifier)
   }
 
+  /// Configures ``supplementaryViewProvider`` to render header and footer text
+  /// using `UICollectionViewListCell` with grouped header/footer content configurations.
+  ///
+  /// Call this after initialization when your layout uses
+  /// `headerMode: .supplementary` and/or `footerMode: .supplementary`.
+  /// Header and footer text is sourced from ``headerForSection(_:)`` and
+  /// ``footerForSection(_:)``, populated by ``apply(content:)``.
+  public func configureListHeaderFooterProvider() {
+    let headerRegistration = UICollectionView.SupplementaryRegistration<UICollectionViewListCell>(
+      elementKind: UICollectionView.elementKindSectionHeader
+    ) { [weak self] supplementaryView, _, indexPath in
+      guard let self else { return }
+      guard let sectionID = dataSource.sectionIdentifier(for: indexPath.section) else {
+        assertionFailure("Section index \(indexPath.section) out of bounds")
+        return
+      }
+      var content = UIListContentConfiguration.groupedHeader()
+      content.text = sectionHeaders[sectionID]
+      supplementaryView.contentConfiguration = content
+    }
+
+    let footerRegistration = UICollectionView.SupplementaryRegistration<UICollectionViewListCell>(
+      elementKind: UICollectionView.elementKindSectionFooter
+    ) { [weak self] supplementaryView, _, indexPath in
+      guard let self else { return }
+      guard let sectionID = dataSource.sectionIdentifier(for: indexPath.section) else {
+        assertionFailure("Section index \(indexPath.section) out of bounds")
+        return
+      }
+      var content = UIListContentConfiguration.groupedFooter()
+      content.text = sectionFooters[sectionID]
+      supplementaryView.contentConfiguration = content
+    }
+
+    supplementaryViewProvider = { collectionView, kind, indexPath in
+      switch kind {
+      case UICollectionView.elementKindSectionHeader:
+        return collectionView.dequeueConfiguredReusableSupplementary(using: headerRegistration, for: indexPath)
+      case UICollectionView.elementKindSectionFooter:
+        return collectionView.dequeueConfiguredReusableSupplementary(using: footerRegistration, for: indexPath)
+      default:
+        assertionFailure("Unexpected supplementary view kind: \(kind)")
+        return nil
+      }
+    }
+  }
+
   // MARK: Private
 
   private let registrar: DynamicCellRegistrar
   private let dataSource: CollectionViewDiffableDataSource<SectionID, AnyItem>
+  private var sectionHeaders = [SectionID: String]()
+  private var sectionFooters = [SectionID: String]()
+  private var applyTask: Task<Void, Never>?
 
   /// Detects content changes for ``AnyItem`` values whose wrapped types conform to
   /// ``ContentEquatable`` and marks them for reconfiguration.

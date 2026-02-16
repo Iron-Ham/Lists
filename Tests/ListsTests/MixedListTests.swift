@@ -436,6 +436,83 @@ struct MixedListDataSourceTests {
     #expect(movedSource == IndexPath(item: 0, section: 0))
     #expect(movedDest == IndexPath(item: 1, section: 0))
   }
+
+  @Test
+  func applyContentPopulatesHeadersAndFooters() async {
+    let collectionView = UICollectionView(
+      frame: .zero,
+      collectionViewLayout: UICollectionViewCompositionalLayout.list(
+        using: UICollectionLayoutListConfiguration(appearance: .plain)
+      )
+    )
+    let dataSource = MixedListDataSource<String>(collectionView: collectionView)
+
+    // Initially no headers/footers
+    #expect(dataSource.headerForSection("info") == nil)
+    #expect(dataSource.footerForSection("info") == nil)
+
+    await dataSource.apply {
+      MixedSection("info", header: "Title", footer: "Subtitle") {
+        AlphaItem(value: "a")
+      }
+      MixedSection("bare") {
+        BetaItem(number: 1)
+      }
+    }
+
+    #expect(dataSource.headerForSection("info") == "Title")
+    #expect(dataSource.footerForSection("info") == "Subtitle")
+    #expect(dataSource.headerForSection("bare") == nil)
+    #expect(dataSource.footerForSection("bare") == nil)
+  }
+
+  @Test
+  func applyContentTrimsRemovedSections() async {
+    let collectionView = UICollectionView(
+      frame: .zero,
+      collectionViewLayout: UICollectionViewCompositionalLayout.list(
+        using: UICollectionLayoutListConfiguration(appearance: .plain)
+      )
+    )
+    let dataSource = MixedListDataSource<String>(collectionView: collectionView)
+
+    await dataSource.apply {
+      MixedSection("first", header: "First") {
+        AlphaItem(value: "a")
+      }
+      MixedSection("second", header: "Second") {
+        BetaItem(number: 1)
+      }
+    }
+
+    #expect(dataSource.headerForSection("first") == "First")
+    #expect(dataSource.headerForSection("second") == "Second")
+
+    // Apply with only "second" — "first" header should be trimmed
+    await dataSource.apply {
+      MixedSection("second", header: "Updated") {
+        BetaItem(number: 2)
+      }
+    }
+
+    #expect(dataSource.headerForSection("first") == nil)
+    #expect(dataSource.headerForSection("second") == "Updated")
+  }
+
+  @Test
+  func configureListHeaderFooterProviderSetsSupplementaryViewProvider() {
+    let collectionView = UICollectionView(
+      frame: .zero,
+      collectionViewLayout: UICollectionViewCompositionalLayout.list(
+        using: UICollectionLayoutListConfiguration(appearance: .plain)
+      )
+    )
+    let dataSource = MixedListDataSource<String>(collectionView: collectionView)
+
+    #expect(dataSource.supplementaryViewProvider == nil)
+    dataSource.configureListHeaderFooterProvider()
+    #expect(dataSource.supplementaryViewProvider != nil)
+  }
 }
 
 // MARK: - MixedSnapshotDiffingTests

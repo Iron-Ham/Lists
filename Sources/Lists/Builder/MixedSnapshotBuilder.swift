@@ -37,13 +37,15 @@ public struct MixedSection<SectionID: Hashable & Sendable>: Sendable {
   public let items: [AnyItem]
   /// Optional header text for the section.
   ///
-  /// > Note: `MixedListDataSource.apply(content:)` does not automatically render headers.
-  /// > Use this property when manually configuring supplementary views on the data source.
+  /// Stored by ``MixedListDataSource/apply(animatingDifferences:content:)`` and accessible
+  /// via ``MixedListDataSource/headerForSection(_:)``. Call
+  /// ``MixedListDataSource/configureListHeaderFooterProvider()`` to render automatically.
   public let header: String?
   /// Optional footer text for the section.
   ///
-  /// > Note: `MixedListDataSource.apply(content:)` does not automatically render footers.
-  /// > Use this property when manually configuring supplementary views on the data source.
+  /// Stored by ``MixedListDataSource/apply(animatingDifferences:content:)`` and accessible
+  /// via ``MixedListDataSource/footerForSection(_:)``. Call
+  /// ``MixedListDataSource/configureListHeaderFooterProvider()`` to render automatically.
   public let footer: String?
 
 }
