@@ -80,6 +80,18 @@ When submitting a PR:
 3. Write a concise, user-facing description of the change
 4. PRs without a changelog entry should not be merged
 
+## Documentation
+
+The project uses **DocC** to generate API documentation, hosted as static files in the `docs/` directory (checked into the repo). Run `make docs` to regenerate.
+
+**You MUST run `make docs`** and commit the updated `docs/` output when any of the following change:
+
+- **Public API** in `Sources/ListKit/` or `Sources/Lists/` — adding, removing, or renaming any `public` type, method, property, or protocol requirement
+- **Doc comments** (`///`) on public symbols
+- **DocC catalog content** — anything under `Sources/ListKit/ListKit.docc/` or `Sources/Lists/Lists.docc/` (articles, tutorials, media, symbol extensions)
+
+If unsure whether your change affects generated docs, run `make docs` and check `git diff docs/` — if there are changes, include them in the commit.
+
 ## Key Conventions
 
 - **`CellViewModel` protocol** is the core abstraction in Lists. Requires `Hashable` + `Sendable`. Optionally conform to `Identifiable` to get free `Hashable`/`Equatable` from `id`.
