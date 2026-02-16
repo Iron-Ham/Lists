@@ -37,12 +37,16 @@ public final class SimpleList<Item: CellViewModel>: NSObject, UICollectionViewDe
   ///     customization via ``separatorHandler`` takes precedence.
   ///   - backgroundColor: An optional background color for the list. When `nil`, the system default is used.
   ///   - headerTopPadding: Extra padding above each section header. When `nil`, the system default is used.
+  ///   - selfSizingInvalidation: Controls how the collection view handles self-sizing invalidation.
+  ///     Use `.disabled` when cell content changes frequently (e.g. streaming text) to avoid animated
+  ///     resize bouncing — the list will perform non-animated reconfigure passes instead.
   public init(
     appearance: UICollectionLayoutListConfiguration.Appearance = .plain,
     showsSeparators: Bool = true,
     separatorColor: UIColor? = nil,
     backgroundColor: UIColor? = nil,
-    headerTopPadding: CGFloat? = nil
+    headerTopPadding: CGFloat? = nil,
+    selfSizingInvalidation: UICollectionView.SelfSizingInvalidation = .enabled
   ) {
     let bridge = ListConfigurationBridge<Int, Item>()
     self.bridge = bridge
@@ -60,6 +64,7 @@ public final class SimpleList<Item: CellViewModel>: NSObject, UICollectionViewDe
     let layout = UICollectionViewCompositionalLayout.list(using: config)
 
     collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
+    collectionView.selfSizingInvalidation = selfSizingInvalidation
     dataSource = ListDataSource(collectionView: collectionView)
     super.init()
     collectionView.delegate = self
@@ -107,6 +112,17 @@ public final class SimpleList<Item: CellViewModel>: NSObject, UICollectionViewDe
   public var leadingSwipeActionsProvider: (@MainActor (Item) -> UISwipeActionsConfiguration?)?
   /// Closure that returns a context menu configuration for a given item.
   public var contextMenuProvider: (@MainActor (Item) -> UIContextMenuConfiguration?)?
+
+  /// An optional delegate that receives `UIScrollViewDelegate` callbacks from the underlying
+  /// collection view's scroll view.
+  ///
+  /// Use this to track scroll position, detect user-initiated drags, or respond to deceleration
+  /// events without replacing the collection view's delegate (which the list manages internally).
+  ///
+  /// ```swift
+  /// list.scrollViewDelegate = myScrollHandler
+  /// ```
+  public weak var scrollViewDelegate: UIScrollViewDelegate?
 
   /// Per-item separator customization handler.
   ///
@@ -232,6 +248,50 @@ public final class SimpleList<Item: CellViewModel>: NSObject, UICollectionViewDe
     point _: CGPoint
   ) -> UIContextMenuConfiguration? {
     bridge.handleContextMenu(at: indexPath, provider: contextMenuProvider)
+  }
+
+  public func scrollViewDidScroll(_ scrollView: UIScrollView) {
+    scrollViewDelegate?.scrollViewDidScroll?(scrollView)
+  }
+
+  public func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+    scrollViewDelegate?.scrollViewWillBeginDragging?(scrollView)
+  }
+
+  public func scrollViewWillEndDragging(
+    _ scrollView: UIScrollView,
+    withVelocity velocity: CGPoint,
+    targetContentOffset: UnsafeMutablePointer<CGPoint>
+  ) {
+    scrollViewDelegate?.scrollViewWillEndDragging?(scrollView, withVelocity: velocity, targetContentOffset: targetContentOffset)
+  }
+
+  public func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+    scrollViewDelegate?.scrollViewDidEndDragging?(scrollView, willDecelerate: decelerate)
+  }
+
+  public func scrollViewWillBeginDecelerating(_ scrollView: UIScrollView) {
+    scrollViewDelegate?.scrollViewWillBeginDecelerating?(scrollView)
+  }
+
+  public func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+    scrollViewDelegate?.scrollViewDidEndDecelerating?(scrollView)
+  }
+
+  public func scrollViewDidEndScrollingAnimation(_ scrollView: UIScrollView) {
+    scrollViewDelegate?.scrollViewDidEndScrollingAnimation?(scrollView)
+  }
+
+  public func scrollViewShouldScrollToTop(_ scrollView: UIScrollView) -> Bool {
+    scrollViewDelegate?.scrollViewShouldScrollToTop?(scrollView) ?? true
+  }
+
+  public func scrollViewDidScrollToTop(_ scrollView: UIScrollView) {
+    scrollViewDelegate?.scrollViewDidScrollToTop?(scrollView)
+  }
+
+  public func scrollViewDidChangeAdjustedContentInset(_ scrollView: UIScrollView) {
+    scrollViewDelegate?.scrollViewDidChangeAdjustedContentInset?(scrollView)
   }
 
   // MARK: Private

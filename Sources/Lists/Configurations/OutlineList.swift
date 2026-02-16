@@ -153,6 +153,13 @@ public final class OutlineList<Item: CellViewModel>: NSObject, UICollectionViewD
   /// Closure that returns a context menu configuration for a given item.
   public var contextMenuProvider: (@MainActor (Item) -> UIContextMenuConfiguration?)?
 
+  /// An optional delegate that receives `UIScrollViewDelegate` callbacks from the underlying
+  /// collection view's scroll view.
+  ///
+  /// Use this to track scroll position, detect user-initiated drags, or respond to deceleration
+  /// events without replacing the collection view's delegate (which the list manages internally).
+  public weak var scrollViewDelegate: UIScrollViewDelegate?
+
   /// Per-item separator customization handler.
   ///
   /// Called for each item before display. Return a modified configuration to customize
@@ -277,6 +284,50 @@ public final class OutlineList<Item: CellViewModel>: NSObject, UICollectionViewD
     point _: CGPoint
   ) -> UIContextMenuConfiguration? {
     bridge.handleContextMenu(at: indexPath, provider: contextMenuProvider)
+  }
+
+  public func scrollViewDidScroll(_ scrollView: UIScrollView) {
+    scrollViewDelegate?.scrollViewDidScroll?(scrollView)
+  }
+
+  public func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+    scrollViewDelegate?.scrollViewWillBeginDragging?(scrollView)
+  }
+
+  public func scrollViewWillEndDragging(
+    _ scrollView: UIScrollView,
+    withVelocity velocity: CGPoint,
+    targetContentOffset: UnsafeMutablePointer<CGPoint>
+  ) {
+    scrollViewDelegate?.scrollViewWillEndDragging?(scrollView, withVelocity: velocity, targetContentOffset: targetContentOffset)
+  }
+
+  public func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+    scrollViewDelegate?.scrollViewDidEndDragging?(scrollView, willDecelerate: decelerate)
+  }
+
+  public func scrollViewWillBeginDecelerating(_ scrollView: UIScrollView) {
+    scrollViewDelegate?.scrollViewWillBeginDecelerating?(scrollView)
+  }
+
+  public func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+    scrollViewDelegate?.scrollViewDidEndDecelerating?(scrollView)
+  }
+
+  public func scrollViewDidEndScrollingAnimation(_ scrollView: UIScrollView) {
+    scrollViewDelegate?.scrollViewDidEndScrollingAnimation?(scrollView)
+  }
+
+  public func scrollViewShouldScrollToTop(_ scrollView: UIScrollView) -> Bool {
+    scrollViewDelegate?.scrollViewShouldScrollToTop?(scrollView) ?? true
+  }
+
+  public func scrollViewDidScrollToTop(_ scrollView: UIScrollView) {
+    scrollViewDelegate?.scrollViewDidScrollToTop?(scrollView)
+  }
+
+  public func scrollViewDidChangeAdjustedContentInset(_ scrollView: UIScrollView) {
+    scrollViewDelegate?.scrollViewDidChangeAdjustedContentInset?(scrollView)
   }
 
   // MARK: Private
