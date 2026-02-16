@@ -63,13 +63,24 @@ final class OutlineExampleViewController: UIViewController {
     title = "Outline"
     view.backgroundColor = .systemBackground
 
-    outlineList = OutlineList<FileItem>(appearance: .sidebar)
+    outlineList = OutlineList<FileItem>(appearance: .sidebar, separatorColor: .systemGray5)
     outlineList.collectionView.frame = view.bounds
     outlineList.collectionView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
     view.addSubview(outlineList.collectionView)
 
     outlineList.onSelect = { item in
       print("Selected: \(item.name)")
+    }
+
+    outlineList.leadingSwipeActionsProvider = { item in
+      guard !item.isFolder else { return nil }
+      let bookmark = UIContextualAction(style: .normal, title: "Bookmark") { _, _, completion in
+        print("Bookmarked \(item.name)")
+        completion(true)
+      }
+      bookmark.image = UIImage(systemName: "bookmark.fill")
+      bookmark.backgroundColor = .systemTeal
+      return UISwipeActionsConfiguration(actions: [bookmark])
     }
 
     setupNavigationBar()
