@@ -109,3 +109,16 @@ Agents are **encouraged** to create and update `AGENTS.md` files as they learn a
 3. Keep instructions factual, concise, and specific to the directory's scope
 4. Update instructions when code patterns change (e.g., new conventions, renamed types)
 5. Don't duplicate information from parent `AGENTS.md` — child files inherit parent context
+
+### Pre-Commit Documentation Check
+
+**Before every commit**, pause and ask yourself:
+
+> *Have I learned something new about this codebase — a convention, a gotcha, an architectural decision, a non-obvious dependency — that isn't already captured in an `AGENTS.md` file?*
+
+If yes:
+- **Update** the nearest relevant `AGENTS.md` with the new information
+- **Create** a new `AGENTS.md` (+ `CLAUDE.md` symlink) in the directory where the knowledge is most scoped, if no suitable file exists yet
+- Include the documentation update in the same commit as the code change
+
+This ensures institutional knowledge grows naturally alongside the code, rather than being lost between sessions.
