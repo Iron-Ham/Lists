@@ -2,7 +2,9 @@ import ListKit
 import Lists
 import UIKit
 
-/// DSL demo — builds snapshots using @SnapshotBuilder result-builder syntax.
+/// DSL demo — builds snapshots using @SnapshotBuilder result-builder syntax
+/// with GroupedList, demonstrating header/footer support, pull-to-refresh,
+/// and snapshot querying with `contains(section:)`.
 final class DSLExampleViewController: UIViewController {
 
   // MARK: Internal
@@ -64,56 +66,32 @@ final class DSLExampleViewController: UIViewController {
     title = "DSL"
     view.backgroundColor = .systemBackground
 
-    setupCollectionView()
-    dataSource = ListDataSource(collectionView: collectionView)
-    setupHeaders()
+    groupedList = GroupedList<SectionID, TodoItem>(appearance: .insetGrouped)
+    groupedList.collectionView.frame = view.bounds
+    groupedList.collectionView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+    view.addSubview(groupedList.collectionView)
+
+    // UIKit pull-to-refresh via onRefresh
+    groupedList.onRefresh = { [weak self] in
+      guard let self else { return }
+      try? await Task.sleep(for: .seconds(1))
+      for i in categories.indices {
+        categories[i].items.shuffle()
+      }
+      await applySnapshot()
+    }
+
     setupNavigationBar()
     loadData()
-    applySnapshot()
+    Task { await applySnapshot() }
   }
 
   // MARK: Private
 
-  private var dataSource: ListDataSource<SectionID, TodoItem>!
-  private var collectionView: UICollectionView!
+  private var groupedList: GroupedList<SectionID, TodoItem>!
   private var showCompleted = true
   private var pinnedItems = [TodoItem]()
   private var categories = [(name: String, items: [TodoItem])]()
-
-  private func setupCollectionView() {
-    var config = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
-    config.headerMode = .supplementary
-    let layout = UICollectionViewCompositionalLayout.list(using: config)
-
-    collectionView = UICollectionView(frame: view.bounds, collectionViewLayout: layout)
-    collectionView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-    view.addSubview(collectionView)
-  }
-
-  private func setupHeaders() {
-    let headerRegistration = UICollectionView.SupplementaryRegistration<UICollectionViewListCell>(
-      elementKind: UICollectionView.elementKindSectionHeader
-    ) { [weak self] view, _, indexPath in
-      guard let self else { return }
-      let snapshot = dataSource.snapshot()
-      guard indexPath.section < snapshot.sectionIdentifiers.count else { return }
-      var content = UIListContentConfiguration.groupedHeader()
-      switch snapshot.sectionIdentifiers[indexPath.section] {
-      case .pinned: content.text = "Pinned"
-      case .category(let name): content.text = name
-      }
-      view.contentConfiguration = content
-    }
-
-    dataSource.supplementaryViewProvider = { cv, kind, indexPath in
-      switch kind {
-      case UICollectionView.elementKindSectionHeader:
-        cv.dequeueConfiguredReusableSupplementary(using: headerRegistration, for: indexPath)
-      default:
-        nil
-      }
-    }
-  }
 
   private func setupNavigationBar() {
     navigationItem.leftBarButtonItem = UIBarButtonItem(
@@ -155,24 +133,22 @@ final class DSLExampleViewController: UIViewController {
     ]
   }
 
-  private func applySnapshot() {
-    Task {
-      // The DSL enables declarative, conditional snapshot building
-      await dataSource.apply {
-        // Pinned section always shows
-        SnapshotSection(.pinned) {
-          pinnedItems
-        }
+  private func applySnapshot() async {
+    // SnapshotSection DSL with header/footer — GroupedList renders these
+    // as section headers and footers automatically.
+    await groupedList.setSections {
+      SnapshotSection(.pinned, header: "Pinned", footer: "\(pinnedItems.count) items") {
+        pinnedItems
+      }
 
-        // Dynamic sections from data
-        for category in categories {
-          SnapshotSection(.category(category.name)) {
-            if showCompleted {
-              category.items
-            } else {
-              category.items.filter { !$0.isCompleted }
-            }
-          }
+      for category in categories {
+        let items = showCompleted ? category.items : category.items.filter { !$0.isCompleted }
+        SnapshotSection(
+          .category(category.name),
+          header: category.name,
+          footer: "\(items.count) items"
+        ) {
+          items
         }
       }
     }
@@ -182,7 +158,14 @@ final class DSLExampleViewController: UIViewController {
   private func toggleCompleted() {
     showCompleted.toggle()
     navigationItem.leftBarButtonItem?.title = showCompleted ? "Toggle Done" : "Show Done"
-    applySnapshot()
+
+    // Demonstrate Snapshot.contains(section:) — verify a section exists before querying it
+    let snapshot = groupedList.snapshot()
+    if snapshot.contains(section: .pinned) {
+      print("Pinned section has \(snapshot.itemIdentifiers(inSection: .pinned).count) items")
+    }
+
+    Task { await applySnapshot() }
   }
 
   @objc
@@ -190,6 +173,6 @@ final class DSLExampleViewController: UIViewController {
     for i in categories.indices {
       categories[i].items.shuffle()
     }
-    applySnapshot()
+    Task { await applySnapshot() }
   }
 }

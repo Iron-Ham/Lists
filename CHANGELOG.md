@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **BREAKING: SwiftUI view initializers simplified**: `SimpleListView`, `GroupedListView`, and `OutlineListView` CellViewModel-based initializers now accept only layout/structural parameters. Behavioral properties (`onSelect`, `onDelete`, `onRefresh`, `editing`, etc.) must be set via the new chainable modifiers. Inline content initializers retain item-typed behavioral params (e.g., `onSelect`, `onDelete`) since they perform `Data → Item` wrapping.
 - **Refresh control logic consolidated**: Extracted `RefreshControlManager` to replace triplicated refresh control code across `SimpleList`, `GroupedList`, and `OutlineList`.
 - **Example app updated**: All UIKit examples use `ListCellViewModel` and `setListContent()`. `OutlineExampleViewController` uses builder DSL. `SwiftUIWrappersExampleView` demonstrates modifier-based configuration. `LiveExampleViewController` uses `ContentEquatable` for automatic reconfiguration.
+- **Example app: expanded feature coverage**: DSL example uses `GroupedList` with `SnapshotSection` header/footer DSL and `Snapshot.contains(section:)`. GroupedList example demonstrates `@ItemsBuilder`, `ListAccessory.toggle`, `.progress`, and `.activityIndicator`. All three UIKit examples include pull-to-refresh. SwiftUI `GroupedDemoView` demonstrates `.editing` and `.allowsMultipleSelection` modifiers.
 
 ### Fixed
 

@@ -80,6 +80,14 @@ final class OutlineExampleViewController: UIViewController {
       return UISwipeActionsConfiguration(actions: [bookmark])
     }
 
+    // UIKit pull-to-refresh — shuffles children within folders
+    outlineList.onRefresh = { [weak self] in
+      guard let self else { return }
+      try? await Task.sleep(for: .seconds(1))
+      fileTree = shuffleChildren(fileTree)
+      await outlineList.setItems(fileTree)
+    }
+
     setupNavigationBar()
     loadData()
     applySnapshot()
@@ -141,22 +149,21 @@ final class OutlineExampleViewController: UIViewController {
     }
   }
 
+  private func shuffleChildren(_ items: [OutlineItem<FileItem>]) -> [OutlineItem<FileItem>] {
+    items.shuffled().map { item in
+      if item.children.isEmpty {
+        return item
+      }
+      return OutlineItem(
+        item: item.item,
+        children: shuffleChildren(item.children),
+        isExpanded: item.isExpanded
+      )
+    }
+  }
+
   @objc
   private func shuffleTapped() {
-    /// Shuffle children within each expanded folder
-    func shuffleChildren(_ items: [OutlineItem<FileItem>]) -> [OutlineItem<FileItem>] {
-      items.shuffled().map { item in
-        if item.children.isEmpty {
-          return item
-        }
-        return OutlineItem(
-          item: item.item,
-          children: shuffleChildren(item.children),
-          isExpanded: item.isExpanded
-        )
-      }
-    }
-
     fileTree = shuffleChildren(fileTree)
     Task {
       await outlineList.setItems(fileTree)

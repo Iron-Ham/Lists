@@ -17,27 +17,59 @@ final class GroupedListExampleViewController: UIViewController {
 
     // MARK: Lifecycle
 
-    init(id: String, title: String, icon: String, detail: String? = nil) {
+    init(
+      id: String,
+      title: String,
+      icon: String,
+      detail: String? = nil,
+      accessoryStyle: AccessoryStyle = .disclosure
+    ) {
       self.id = id
       self.title = title
       self.icon = icon
       self.detail = detail
+      self.accessoryStyle = accessoryStyle
     }
 
     // MARK: Internal
+
+    enum AccessoryStyle: Hashable, Sendable {
+      case disclosure
+      case toggle(isOn: Bool)
+      case progress(Double)
+      case activity
+    }
 
     let id: String
     let title: String
     let icon: String
     let detail: String?
+    let accessoryStyle: AccessoryStyle
 
     @MainActor
     func configure(_ cell: UICollectionViewListCell) {
+      let accessories: [ListAccessory] =
+        switch accessoryStyle {
+        case .disclosure:
+          [.disclosureIndicator]
+
+        case .toggle(let isOn):
+          [.toggle(isOn: isOn, onChange: { newValue in
+            print("Toggle \(title): \(newValue)")
+          }, key: id)]
+
+        case .progress(let value):
+          [.progress(value)]
+
+        case .activity:
+          [.activityIndicator]
+        }
+
       cell.setListContent(
         text: title,
         secondaryText: detail,
         image: UIImage(systemName: icon),
-        accessories: [.disclosureIndicator]
+        accessories: accessories
       )
     }
   }
@@ -102,6 +134,16 @@ final class GroupedListExampleViewController: UIViewController {
       moveItem(from: source, to: destination)
     }
 
+    // UIKit pull-to-refresh — simulates reloading settings
+    groupedList.onRefresh = { [weak self] in
+      guard let self else { return }
+      try? await Task.sleep(for: .seconds(1))
+      for i in sectionItems.indices {
+        sectionItems[i].items.shuffle()
+      }
+      await reapplySectionsAsync()
+    }
+
     setupNavigationBar()
     loadSections()
   }
@@ -118,6 +160,7 @@ final class GroupedListExampleViewController: UIViewController {
         SettingItem(id: "profile", title: "Profile", icon: "person.fill"),
         SettingItem(id: "password", title: "Password", icon: "lock.fill"),
         SettingItem(id: "email", title: "Email", icon: "envelope.fill", detail: "user@example.com"),
+        SettingItem(id: "sync", title: "Sync Status", icon: "arrow.triangle.2.circlepath", accessoryStyle: .activity),
       ],
       "Account",
       "Manage your account details and security settings"
@@ -128,6 +171,7 @@ final class GroupedListExampleViewController: UIViewController {
         SettingItem(id: "appearance", title: "Appearance", icon: "paintbrush.fill", detail: "System"),
         SettingItem(id: "language", title: "Language", icon: "globe", detail: "English"),
         SettingItem(id: "privacy", title: "Privacy", icon: "hand.raised.fill"),
+        SettingItem(id: "storage", title: "Storage", icon: "internaldrive", detail: "7.2 GB", accessoryStyle: .progress(0.7)),
       ],
       "Preferences",
       nil
@@ -135,7 +179,12 @@ final class GroupedListExampleViewController: UIViewController {
     (
       .notifications,
       [
-        SettingItem(id: "push", title: "Push Notifications", icon: "bell.fill"),
+        SettingItem(
+          id: "push",
+          title: "Push Notifications",
+          icon: "bell.fill",
+          accessoryStyle: .toggle(isOn: true)
+        ),
         SettingItem(id: "email-notif", title: "Email Notifications", icon: "envelope.badge.fill"),
         SettingItem(id: "sound", title: "Sound", icon: "speaker.wave.2.fill", detail: "Default"),
       ],
@@ -154,6 +203,15 @@ final class GroupedListExampleViewController: UIViewController {
     ),
   ]
 
+  /// Using @ItemsBuilder init — items are declared inline via the trailing closure
+  private var sectionModels: [SectionModel<SectionID, SettingItem>] {
+    sectionItems.map { entry in
+      SectionModel(id: entry.id, header: entry.header, footer: entry.footer) {
+        entry.items
+      }
+    }
+  }
+
   private func setupNavigationBar() {
     navigationItem.rightBarButtonItem = UIBarButtonItem(
       title: "Select Mode",
@@ -171,17 +229,8 @@ final class GroupedListExampleViewController: UIViewController {
   }
 
   private func loadSections() {
-    let sections = sectionItems.map { entry in
-      SectionModel(
-        id: entry.id,
-        items: entry.items,
-        header: entry.header,
-        footer: entry.footer
-      )
-    }
-
     Task {
-      await groupedList.setSections(sections, animatingDifferences: false)
+      await groupedList.setSections(sectionModels, animatingDifferences: false)
     }
   }
 
@@ -198,16 +247,10 @@ final class GroupedListExampleViewController: UIViewController {
   }
 
   private func reapplySections() {
-    let sections = sectionItems.map { entry in
-      SectionModel(
-        id: entry.id,
-        items: entry.items,
-        header: entry.header,
-        footer: entry.footer
-      )
-    }
-    Task {
-      await groupedList.setSections(sections)
-    }
+    Task { await reapplySectionsAsync() }
+  }
+
+  private func reapplySectionsAsync() async {
+    await groupedList.setSections(sectionModels)
   }
 }
