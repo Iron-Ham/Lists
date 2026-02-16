@@ -20,6 +20,7 @@ public struct SimpleListView<Item: CellViewModel>: UIViewRepresentable {
     separatorColor: UIColor? = nil,
     backgroundColor: UIColor? = nil,
     headerTopPadding: CGFloat? = nil,
+    selfSizingInvalidation: UICollectionView.SelfSizingInvalidation = .enabled,
     allowsMultipleSelection: Bool = false,
     allowsSelectionDuringEditing: Bool = false,
     allowsMultipleSelectionDuringEditing: Bool = false,
@@ -31,7 +32,9 @@ public struct SimpleListView<Item: CellViewModel>: UIViewRepresentable {
     leadingSwipeActionsProvider: (@MainActor (Item) -> UISwipeActionsConfiguration?)? = nil,
     contextMenuProvider: (@MainActor (Item) -> UIContextMenuConfiguration?)? = nil,
     separatorHandler: (@MainActor (Item, UIListSeparatorConfiguration) -> UIListSeparatorConfiguration)? = nil,
-    onRefresh: (@MainActor () async -> Void)? = nil
+    onRefresh: (@MainActor () async -> Void)? = nil,
+    collectionViewHandler: (@MainActor (UICollectionView) -> Void)? = nil,
+    scrollViewDelegate: UIScrollViewDelegate? = nil
   ) {
     self.items = items
     self.appearance = appearance
@@ -39,6 +42,7 @@ public struct SimpleListView<Item: CellViewModel>: UIViewRepresentable {
     self.separatorColor = separatorColor
     self.backgroundColor = backgroundColor
     self.headerTopPadding = headerTopPadding
+    self.selfSizingInvalidation = selfSizingInvalidation
     self.allowsMultipleSelection = allowsMultipleSelection
     self.allowsSelectionDuringEditing = allowsSelectionDuringEditing
     self.allowsMultipleSelectionDuringEditing = allowsMultipleSelectionDuringEditing
@@ -51,6 +55,8 @@ public struct SimpleListView<Item: CellViewModel>: UIViewRepresentable {
     self.contextMenuProvider = contextMenuProvider
     self.separatorHandler = separatorHandler
     self.onRefresh = onRefresh
+    self.collectionViewHandler = collectionViewHandler
+    self.scrollViewDelegate = scrollViewDelegate
   }
 
   // MARK: Public
@@ -78,6 +84,7 @@ public struct SimpleListView<Item: CellViewModel>: UIViewRepresentable {
     var initialSeparatorColor: UIColor??
     var initialBackgroundColor: UIColor??
     var initialHeaderTopPadding: CGFloat??
+    var initialSelfSizingInvalidation: UICollectionView.SelfSizingInvalidation?
 
     @objc
     func handleRefresh(_ sender: UIRefreshControl) {
@@ -124,6 +131,14 @@ public struct SimpleListView<Item: CellViewModel>: UIViewRepresentable {
   /// - Important: Applied only when the view is first created. Subsequent SwiftUI state
   ///   changes to this value will not update the existing collection view layout.
   public let headerTopPadding: CGFloat?
+  /// Controls how the collection view handles self-sizing invalidation.
+  ///
+  /// Use `.disabled` when cell content changes frequently (e.g. streaming text) to avoid
+  /// animated resize bouncing. The list will perform non-animated reconfiguration passes instead.
+  ///
+  /// - Important: Applied only when the view is first created. Subsequent SwiftUI state
+  ///   changes to this value will not update the existing collection view.
+  public let selfSizingInvalidation: UICollectionView.SelfSizingInvalidation
   /// Whether the list allows multiple simultaneous selections.
   public let allowsMultipleSelection: Bool
   /// Whether selection is allowed during editing mode.
@@ -149,6 +164,12 @@ public struct SimpleListView<Item: CellViewModel>: UIViewRepresentable {
   public var separatorHandler: (@MainActor (Item, UIListSeparatorConfiguration) -> UIListSeparatorConfiguration)?
   /// An async closure invoked on pull-to-refresh. The refresh control is dismissed when the closure returns.
   public var onRefresh: (@MainActor () async -> Void)?
+  /// Called once when the underlying `UICollectionView` is created. Use this to store a reference
+  /// for direct UIKit access (e.g. animated layout invalidation).
+  public var collectionViewHandler: (@MainActor (UICollectionView) -> Void)?
+  /// An optional delegate that receives `UIScrollViewDelegate` callbacks from the underlying
+  /// collection view's scroll view.
+  public var scrollViewDelegate: UIScrollViewDelegate?
 
   public static func dismantleUIView(_: UICollectionView, coordinator: Coordinator) {
     coordinator.updateTask?.cancel()
@@ -162,7 +183,8 @@ public struct SimpleListView<Item: CellViewModel>: UIViewRepresentable {
       showsSeparators: showsSeparators,
       separatorColor: separatorColor,
       backgroundColor: backgroundColor,
-      headerTopPadding: headerTopPadding
+      headerTopPadding: headerTopPadding,
+      selfSizingInvalidation: selfSizingInvalidation
     )
     list.onSelect = onSelect
     list.onDeselect = onDeselect
@@ -171,6 +193,7 @@ public struct SimpleListView<Item: CellViewModel>: UIViewRepresentable {
     list.leadingSwipeActionsProvider = leadingSwipeActionsProvider
     list.contextMenuProvider = contextMenuProvider
     list.separatorHandler = separatorHandler
+    list.scrollViewDelegate = scrollViewDelegate
     list.allowsMultipleSelection = allowsMultipleSelection
     list.allowsSelectionDuringEditing = allowsSelectionDuringEditing
     list.allowsMultipleSelectionDuringEditing = allowsMultipleSelectionDuringEditing
@@ -183,6 +206,7 @@ public struct SimpleListView<Item: CellViewModel>: UIViewRepresentable {
     context.coordinator.initialSeparatorColor = separatorColor
     context.coordinator.initialBackgroundColor = backgroundColor
     context.coordinator.initialHeaderTopPadding = headerTopPadding
+    context.coordinator.initialSelfSizingInvalidation = selfSizingInvalidation
 
     configureRefreshControl(
       on: list.collectionView,
@@ -194,6 +218,7 @@ public struct SimpleListView<Item: CellViewModel>: UIViewRepresentable {
     context.coordinator.updateTask = Task {
       await list.setItems(items, animatingDifferences: false)
     }
+    collectionViewHandler?(list.collectionView)
     return list.collectionView
   }
 
@@ -210,6 +235,7 @@ public struct SimpleListView<Item: CellViewModel>: UIViewRepresentable {
     list.leadingSwipeActionsProvider = leadingSwipeActionsProvider
     list.contextMenuProvider = contextMenuProvider
     list.separatorHandler = separatorHandler
+    list.scrollViewDelegate = scrollViewDelegate
     list.allowsMultipleSelection = allowsMultipleSelection
     list.allowsSelectionDuringEditing = allowsSelectionDuringEditing
     list.allowsMultipleSelectionDuringEditing = allowsMultipleSelectionDuringEditing
@@ -243,8 +269,9 @@ public struct SimpleListView<Item: CellViewModel>: UIViewRepresentable {
         && coordinator.initialShowsSeparators == showsSeparators
         && coordinator.initialSeparatorColor == separatorColor
         && coordinator.initialBackgroundColor == backgroundColor
-        && coordinator.initialHeaderTopPadding == headerTopPadding,
-      "SimpleListView layout properties (appearance, showsSeparators, separatorColor, backgroundColor, headerTopPadding) cannot be changed after creation — UICollectionLayoutListConfiguration is immutable once the layout is built"
+        && coordinator.initialHeaderTopPadding == headerTopPadding
+        && coordinator.initialSelfSizingInvalidation == selfSizingInvalidation,
+      "SimpleListView layout properties (appearance, showsSeparators, separatorColor, backgroundColor, headerTopPadding, selfSizingInvalidation) cannot be changed after creation — UICollectionLayoutListConfiguration is immutable once the layout is built"
     )
   }
 
@@ -260,6 +287,7 @@ extension SimpleListView {
     separatorColor: UIColor? = nil,
     backgroundColor: UIColor? = nil,
     headerTopPadding: CGFloat? = nil,
+    selfSizingInvalidation: UICollectionView.SelfSizingInvalidation = .enabled,
     allowsMultipleSelection: Bool = false,
     allowsSelectionDuringEditing: Bool = false,
     allowsMultipleSelectionDuringEditing: Bool = false,
@@ -273,6 +301,8 @@ extension SimpleListView {
     contextMenuProvider: (@MainActor (Data) -> UIContextMenuConfiguration?)? = nil,
     separatorHandler: (@MainActor (Data, UIListSeparatorConfiguration) -> UIListSeparatorConfiguration)? = nil,
     onRefresh: (@MainActor () async -> Void)? = nil,
+    collectionViewHandler: (@MainActor (UICollectionView) -> Void)? = nil,
+    scrollViewDelegate: UIScrollViewDelegate? = nil,
     @ViewBuilder content: @escaping @MainActor (Data) -> some View
   ) where Item == InlineCellViewModel<Data> {
     let mapped = items.map { InlineCellViewModel(data: $0, accessories: accessories, content: content) }
@@ -283,11 +313,14 @@ extension SimpleListView {
     self.separatorColor = separatorColor
     self.backgroundColor = backgroundColor
     self.headerTopPadding = headerTopPadding
+    self.selfSizingInvalidation = selfSizingInvalidation
     self.allowsMultipleSelection = allowsMultipleSelection
     self.allowsSelectionDuringEditing = allowsSelectionDuringEditing
     self.allowsMultipleSelectionDuringEditing = allowsMultipleSelectionDuringEditing
     self.isEditing = isEditing
     self.onRefresh = onRefresh
+    self.collectionViewHandler = collectionViewHandler
+    self.scrollViewDelegate = scrollViewDelegate
 
     if let onSelect {
       self.onSelect = { item in onSelect(item.data) }

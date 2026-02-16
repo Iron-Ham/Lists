@@ -28,6 +28,11 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         icon: "rectangle.on.rectangle"
       ),
       makeTab(LiveExampleViewController(), title: "Live", icon: "chart.line.uptrend.xyaxis"),
+      makeTab(
+        UIHostingController(rootView: ChatExampleView()),
+        title: "Chat",
+        icon: "bubble.left.and.bubble.right"
+      ),
     ]
 
     window = UIWindow(windowScene: windowScene)

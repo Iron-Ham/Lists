@@ -30,7 +30,9 @@ public struct OutlineListView<Item: CellViewModel>: UIViewRepresentable {
     leadingSwipeActionsProvider: (@MainActor (Item) -> UISwipeActionsConfiguration?)? = nil,
     contextMenuProvider: (@MainActor (Item) -> UIContextMenuConfiguration?)? = nil,
     separatorHandler: (@MainActor (Item, UIListSeparatorConfiguration) -> UIListSeparatorConfiguration)? = nil,
-    onRefresh: (@MainActor () async -> Void)? = nil
+    onRefresh: (@MainActor () async -> Void)? = nil,
+    collectionViewHandler: (@MainActor (UICollectionView) -> Void)? = nil,
+    scrollViewDelegate: UIScrollViewDelegate? = nil
   ) {
     self.items = items
     self.appearance = appearance
@@ -50,6 +52,8 @@ public struct OutlineListView<Item: CellViewModel>: UIViewRepresentable {
     self.contextMenuProvider = contextMenuProvider
     self.separatorHandler = separatorHandler
     self.onRefresh = onRefresh
+    self.collectionViewHandler = collectionViewHandler
+    self.scrollViewDelegate = scrollViewDelegate
   }
 
   // MARK: Public
@@ -148,6 +152,12 @@ public struct OutlineListView<Item: CellViewModel>: UIViewRepresentable {
   public var separatorHandler: (@MainActor (Item, UIListSeparatorConfiguration) -> UIListSeparatorConfiguration)?
   /// An async closure invoked on pull-to-refresh.
   public var onRefresh: (@MainActor () async -> Void)?
+  /// Called once when the underlying `UICollectionView` is created. Use this to store a reference
+  /// for direct UIKit access (e.g. animated layout invalidation).
+  public var collectionViewHandler: (@MainActor (UICollectionView) -> Void)?
+  /// An optional delegate that receives `UIScrollViewDelegate` callbacks from the underlying
+  /// collection view's scroll view.
+  public var scrollViewDelegate: UIScrollViewDelegate?
 
   public static func dismantleUIView(_: UICollectionView, coordinator: Coordinator) {
     coordinator.updateTask?.cancel()
@@ -170,6 +180,7 @@ public struct OutlineListView<Item: CellViewModel>: UIViewRepresentable {
     list.leadingSwipeActionsProvider = leadingSwipeActionsProvider
     list.contextMenuProvider = contextMenuProvider
     list.separatorHandler = separatorHandler
+    list.scrollViewDelegate = scrollViewDelegate
     list.allowsMultipleSelection = allowsMultipleSelection
     list.allowsSelectionDuringEditing = allowsSelectionDuringEditing
     list.allowsMultipleSelectionDuringEditing = allowsMultipleSelectionDuringEditing
@@ -193,6 +204,7 @@ public struct OutlineListView<Item: CellViewModel>: UIViewRepresentable {
     context.coordinator.updateTask = Task {
       await list.setItems(items, animatingDifferences: false)
     }
+    collectionViewHandler?(list.collectionView)
     return list.collectionView
   }
 
@@ -209,6 +221,7 @@ public struct OutlineListView<Item: CellViewModel>: UIViewRepresentable {
     list.leadingSwipeActionsProvider = leadingSwipeActionsProvider
     list.contextMenuProvider = contextMenuProvider
     list.separatorHandler = separatorHandler
+    list.scrollViewDelegate = scrollViewDelegate
     list.allowsMultipleSelection = allowsMultipleSelection
     list.allowsSelectionDuringEditing = allowsSelectionDuringEditing
     list.allowsMultipleSelectionDuringEditing = allowsMultipleSelectionDuringEditing
@@ -272,6 +285,8 @@ extension OutlineListView {
     contextMenuProvider: (@MainActor (Data) -> UIContextMenuConfiguration?)? = nil,
     separatorHandler: (@MainActor (Data, UIListSeparatorConfiguration) -> UIListSeparatorConfiguration)? = nil,
     onRefresh: (@MainActor () async -> Void)? = nil,
+    collectionViewHandler: (@MainActor (UICollectionView) -> Void)? = nil,
+    scrollViewDelegate: UIScrollViewDelegate? = nil,
     @ViewBuilder content: @escaping @MainActor (Data) -> some View
   ) where Item == InlineCellViewModel<Data> {
     let mapped = items.map { $0.mapItems { InlineCellViewModel(data: $0, accessories: accessories, content: content) } }
@@ -287,6 +302,8 @@ extension OutlineListView {
     self.allowsMultipleSelectionDuringEditing = allowsMultipleSelectionDuringEditing
     self.isEditing = isEditing
     self.onRefresh = onRefresh
+    self.collectionViewHandler = collectionViewHandler
+    self.scrollViewDelegate = scrollViewDelegate
 
     if let onSelect {
       self.onSelect = { item in onSelect(item.data) }

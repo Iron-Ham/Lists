@@ -34,7 +34,9 @@ public struct GroupedListView<SectionID: Hashable & Sendable, Item: CellViewMode
     separatorHandler: (@MainActor (Item, UIListSeparatorConfiguration) -> UIListSeparatorConfiguration)? = nil,
     headerContentProvider: (@MainActor (SectionID) -> UIContentConfiguration?)? = nil,
     footerContentProvider: (@MainActor (SectionID) -> UIContentConfiguration?)? = nil,
-    onRefresh: (@MainActor () async -> Void)? = nil
+    onRefresh: (@MainActor () async -> Void)? = nil,
+    collectionViewHandler: (@MainActor (UICollectionView) -> Void)? = nil,
+    scrollViewDelegate: UIScrollViewDelegate? = nil
   ) {
     self.sections = sections
     self.appearance = appearance
@@ -58,6 +60,8 @@ public struct GroupedListView<SectionID: Hashable & Sendable, Item: CellViewMode
     self.headerContentProvider = headerContentProvider
     self.footerContentProvider = footerContentProvider
     self.onRefresh = onRefresh
+    self.collectionViewHandler = collectionViewHandler
+    self.scrollViewDelegate = scrollViewDelegate
   }
 
   // MARK: Public
@@ -172,6 +176,12 @@ public struct GroupedListView<SectionID: Hashable & Sendable, Item: CellViewMode
   public var footerContentProvider: (@MainActor (SectionID) -> UIContentConfiguration?)?
   /// An async closure invoked on pull-to-refresh.
   public var onRefresh: (@MainActor () async -> Void)?
+  /// Called once when the underlying `UICollectionView` is created. Use this to store a reference
+  /// for direct UIKit access (e.g. animated layout invalidation).
+  public var collectionViewHandler: (@MainActor (UICollectionView) -> Void)?
+  /// An optional delegate that receives `UIScrollViewDelegate` callbacks from the underlying
+  /// collection view's scroll view.
+  public var scrollViewDelegate: UIScrollViewDelegate?
 
   public static func dismantleUIView(_: UICollectionView, coordinator: Coordinator) {
     coordinator.updateTask?.cancel()
@@ -198,6 +208,7 @@ public struct GroupedListView<SectionID: Hashable & Sendable, Item: CellViewMode
     list.separatorHandler = separatorHandler
     list.headerContentProvider = headerContentProvider
     list.footerContentProvider = footerContentProvider
+    list.scrollViewDelegate = scrollViewDelegate
     list.allowsMultipleSelection = allowsMultipleSelection
     list.allowsSelectionDuringEditing = allowsSelectionDuringEditing
     list.allowsMultipleSelectionDuringEditing = allowsMultipleSelectionDuringEditing
@@ -223,6 +234,7 @@ public struct GroupedListView<SectionID: Hashable & Sendable, Item: CellViewMode
     context.coordinator.updateTask = Task {
       await list.setSections(sections, animatingDifferences: false)
     }
+    collectionViewHandler?(list.collectionView)
     return list.collectionView
   }
 
@@ -241,6 +253,7 @@ public struct GroupedListView<SectionID: Hashable & Sendable, Item: CellViewMode
     list.separatorHandler = separatorHandler
     list.headerContentProvider = headerContentProvider
     list.footerContentProvider = footerContentProvider
+    list.scrollViewDelegate = scrollViewDelegate
     list.allowsMultipleSelection = allowsMultipleSelection
     list.allowsSelectionDuringEditing = allowsSelectionDuringEditing
     list.allowsMultipleSelectionDuringEditing = allowsMultipleSelectionDuringEditing
@@ -310,6 +323,8 @@ extension GroupedListView {
     headerContentProvider: (@MainActor (SectionID) -> UIContentConfiguration?)? = nil,
     footerContentProvider: (@MainActor (SectionID) -> UIContentConfiguration?)? = nil,
     onRefresh: (@MainActor () async -> Void)? = nil,
+    collectionViewHandler: (@MainActor (UICollectionView) -> Void)? = nil,
+    scrollViewDelegate: UIScrollViewDelegate? = nil,
     @ViewBuilder content: @escaping @MainActor (Data) -> some View
   ) where Item == InlineCellViewModel<Data> {
     let mapped: [SectionModel<SectionID, InlineCellViewModel<Data>>] = sections.map { section in
@@ -335,6 +350,8 @@ extension GroupedListView {
     self.headerContentProvider = headerContentProvider
     self.footerContentProvider = footerContentProvider
     self.onRefresh = onRefresh
+    self.collectionViewHandler = collectionViewHandler
+    self.scrollViewDelegate = scrollViewDelegate
 
     if let onSelect {
       self.onSelect = { item in onSelect(item.data) }
