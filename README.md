@@ -9,7 +9,7 @@ A fast, pure-Swift diffable data source for `UICollectionView`. Drop-in replacem
 | **ListKit** | Low-level diffing engine and data source. API-compatible with Apple's `NSDiffableDataSourceSnapshot`. |
 | **Lists** | High-level, ViewModel-driven layer with result-builder DSL, automatic cell registration, pre-built list configurations, and SwiftUI wrappers. |
 
-**[Documentation](https://iron-ham.github.io/Lists/documentation)**
+**[Documentation](https://iron-ham.github.io/Lists/documentation)** — full API reference, guides, and examples.
 
 ## Requirements
 
@@ -23,7 +23,7 @@ A fast, pure-Swift diffable data source for `UICollectionView`. Drop-in replacem
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/Iron-Ham/ListKit", from: "0.1.0"),
+    .package(url: "https://github.com/Iron-Ham/ListKit", from: "0.5.0"),
 ]
 ```
 
@@ -41,8 +41,6 @@ Then add `ListKit`, `Lists`, or both to your target:
 ```
 
 ## Quick Start
-
-### Lists (recommended for most apps)
 
 Define a view model, build a snapshot with the DSL, done:
 
@@ -85,262 +83,7 @@ class ContactsViewController: UIViewController {
 }
 ```
 
-### ListKit (low-level API)
-
-Same API surface as Apple's diffable data source — familiar if you've used `UICollectionViewDiffableDataSource`:
-
-```swift
-import ListKit
-
-let dataSource = CollectionViewDiffableDataSource<String, Int>(
-    collectionView: collectionView
-) { cv, indexPath, item in
-    let cell = cv.dequeueReusableCell(withReuseIdentifier: "cell", for: indexPath)
-    // configure cell
-    return cell
-}
-
-var snapshot = DiffableDataSourceSnapshot<String, Int>()
-snapshot.appendSections(["main"])
-snapshot.appendItems([1, 2, 3], toSection: "main")
-await dataSource.apply(snapshot)
-```
-
-## Architecture
-
-```mermaid
-graph TD
-    subgraph Lists
-        subgraph SwiftUI
-            SLV[SimpleListView]
-            GLV[GroupedListView]
-            OLV[OutlineListView]
-        end
-        subgraph UIKit
-            SL[SimpleList]
-            GL[GroupedList]
-            OL[OutlineList]
-        end
-        LDS[ListDataSource]
-        MLDS[MixedListDataSource<br><i>AnyItem + Registrar</i>]
-        SB[SnapshotBuilder / CellViewModel]
-
-        SLV --> SL
-        GLV --> GL
-        OLV --> OL
-        SL --> LDS
-        GL --> LDS
-        OL --> LDS
-        LDS --> MLDS
-        MLDS --> SB
-    end
-
-    subgraph ListKit
-        CVDDS[CollectionViewDiffableDataSource]
-        SNAP[DiffableDataSourceSnapshot<br>DiffableDataSourceSectionSnapshot]
-        DIFF[HeckelDiff · SectionedDiff]
-
-        CVDDS --> SNAP --> DIFF
-    end
-
-    SB --> CVDDS
-```
-
-## Features
-
-### CellViewModel Protocol
-
-One protocol, one method. ViewModels are the item identifiers — no type erasure needed:
-
-```swift
-public protocol CellViewModel: Hashable, Sendable {
-    associatedtype Cell: UICollectionViewCell
-    @MainActor func configure(_ cell: Cell)
-}
-```
-
-Conform to `Identifiable` to get automatic id-based `Hashable`/`Equatable`:
-
-```swift
-struct TodoItem: CellViewModel, Identifiable {
-    typealias Cell = UICollectionViewListCell
-    let id: UUID
-    let title: String
-    let isCompleted: Bool  // not included in hash/equality
-
-    @MainActor func configure(_ cell: UICollectionViewListCell) { ... }
-}
-```
-
-### Result-Builder DSL
-
-Build snapshots declaratively with `if`/`else`, `for` loops, and conditionals:
-
-```swift
-await dataSource.apply {
-    SnapshotSection(.pinned) {
-        pinnedItems
-    }
-
-    for category in categories {
-        SnapshotSection(.category(category.name)) {
-            if showCompleted {
-                category.items
-            } else {
-                category.items.filter { !$0.isCompleted }
-            }
-        }
-    }
-}
-```
-
-### Pre-Built Configurations
-
-| Type | Use Case |
-|:-----|:---------|
-| `SimpleList<Item>` | Single-section flat list. Owns its collection view and layout. |
-| `GroupedList<SectionID, Item>` | Multi-section with headers/footers from `SectionModel`. |
-| `OutlineList<Item>` | Hierarchical expand/collapse via `OutlineItem` tree. |
-
-All three support selection, swipe actions (leading + trailing), context menus, and pull-to-refresh.
-
-### SwiftUI Wrappers
-
-Each configuration has a `UIViewRepresentable` wrapper. Use the inline content API to define cells with a `@ViewBuilder` closure — no `CellViewModel` struct needed:
-
-```swift
-import Lists
-import SwiftUI
-
-struct FruitsView: View {
-    @State private var fruits = ["Apple", "Banana", "Cherry"]
-
-    var body: some View {
-        SimpleListView(
-            items: fruits,
-            accessories: [.disclosureIndicator],
-            onSelect: { fruit in print(fruit) },
-            trailingSwipeActionsProvider: { fruit in
-                UISwipeActionsConfiguration(actions: [
-                    UIContextualAction(style: .destructive, title: "Delete") { _, _, done in
-                        fruits.removeAll { $0 == fruit }
-                        done(true)
-                    }
-                ])
-            },
-            onRefresh: {
-                try? await Task.sleep(for: .seconds(1))
-                fruits.shuffle()
-            }
-        ) { fruit in
-            Text(fruit)
-        }
-    }
-}
-```
-
-Grouped and outline wrappers follow the same pattern:
-
-```swift
-// Grouped sections with headers/footers
-GroupedListView(
-    sections: [
-        SectionModel(id: "recent", items: recentItems, header: "Recent"),
-        SectionModel(id: "all", items: allItems, header: "All"),
-    ],
-    onSelect: { item in ... }
-) { item in
-    Text(item.name)
-}
-
-// Hierarchical outline
-OutlineListView(
-    items: [
-        OutlineItem(item: "Animals", children: [
-            OutlineItem(item: "Dog"),
-            OutlineItem(item: "Cat"),
-        ], isExpanded: true),
-    ]
-) { item in
-    Text(item)
-}
-```
-
-For custom cell view models with reusable styling, conform to `SwiftUICellViewModel`:
-
-```swift
-struct LanguageItem: SwiftUICellViewModel, Identifiable {
-    let id: UUID
-    let name: String
-
-    var body: some View {
-        Text(name).font(.body)
-    }
-
-    var accessories: [ListAccessory] {
-        [.disclosureIndicator]
-    }
-}
-```
-
-`ListAccessory` provides a pure-Swift enum over common cell accessories, with a `.custom(UICellAccessory, key:)` escape hatch for advanced cases.
-
-### Hierarchical Data
-
-`DiffableDataSourceSectionSnapshot` supports parent-child relationships with expand/collapse:
-
-```swift
-var sectionSnapshot = DiffableDataSourceSectionSnapshot<Item>()
-sectionSnapshot.append([parent])
-sectionSnapshot.append([child1, child2], to: parent)
-sectionSnapshot.expand([parent])
-
-await dataSource.apply(sectionSnapshot, to: .files)
-```
-
-### Mixed Cell Types
-
-`MixedListDataSource` supports heterogeneous `CellViewModel` types in a single data source via type-erased `AnyItem`. Each section (or even each row) can use a different cell type:
-
-```swift
-struct BannerItem: CellViewModel { typealias Cell = BannerCell; ... }
-struct ProductItem: CellViewModel { typealias Cell = ProductCell; ... }
-
-let dataSource = MixedListDataSource<SectionID>(collectionView: collectionView)
-
-await dataSource.apply {
-    MixedSection(.banners) {
-        BannerItem(title: "Summer Sale!")
-    }
-    MixedSection(.products) {
-        ProductItem(name: "Laptop", price: "$999")
-        ProductItem(name: "Phone", price: "$699")
-    }
-}
-
-// Type-safe extraction for tap handling
-if let product = anyItem.as(ProductItem.self) { showDetail(product) }
-```
-
-`MixedListDataSource` uses type-erased `AnyItem` wrappers, which adds overhead compared to the concrete `ListDataSource` path. `AnyItem` uses precomputed hashing and `ObjectIdentifier` fast-reject equality to minimize the cost — cross-type comparisons are a single pointer compare, not a witness table dispatch.
-
-| Operation | Concrete | AnyItem | Overhead |
-|:---|---:|---:|---:|
-| Wrap 10k items | — | 0.5 ms | — |
-| Build 10k snapshot | 0.001 ms | 0.08 ms | ~53x |
-| DSL build 100 sections x 100 | 0.4 ms | 1.4 ms | ~3.3x |
-| Diff 10k (50% overlap) | 4.5 ms | 6.5 ms | ~1.5x |
-| Diff 10k (cross-type replace) | — | 7.5 ms | — |
-
-Snapshot construction overhead is measurable but sub-millisecond at typical scales. The critical path — diffing — adds only ~40% overhead, and both absolute times remain well within a single frame budget (16ms @ 60fps for typical list sizes).
-
-### Swift 6 Strict Concurrency
-
-All types are `Sendable`. The data source is `@MainActor`. Snapshots are value types that can be built on any thread and applied on main.
-
-## Current Limitations
-
-**Drag-and-drop.** The pre-built configurations (`SimpleList`, `GroupedList`, `OutlineList`) do not yet support drag-and-drop reordering. Use `ListDataSource` or `CollectionViewDiffableDataSource` directly with your own delegate for this.
+Lists also provides pre-built configurations (`SimpleList`, `GroupedList`, `OutlineList`) with SwiftUI wrappers, mixed cell type support, and more. See the [documentation](https://iron-ham.github.io/Lists/documentation) for the full API.
 
 ## Benchmarks
 
@@ -371,7 +114,7 @@ Both libraries implement Paul Heckel's O(n) diff. IGListKit's is Objective-C++; 
 | Diff no-change 10k | 9.5 ms | 0.09 ms | **106x** — per-section skip makes this free |
 | Diff shuffle 10k | 9.8 ms | 3.2 ms | **3.1x** — ListKit wins all-moves case |
 
-Per-section diffing skips unchanged sections entirely — the common case for incremental UI updates. `ContiguousArray` storage and `reserveCapacity` for diff internals give ListKit a consistent edge even at 50k scale, while providing sectioned structure, `Sendable` safety, and full `UICollectionViewDiffableDataSource` compatibility that IGListKit doesn't.
+Per-section diffing skips unchanged sections entirely — the common case for incremental UI updates.
 
 ### vs ReactiveCollectionsKit
 
@@ -383,54 +126,18 @@ ReactiveCollectionsKit wraps Apple's `NSDiffableDataSourceSnapshot` with type-er
 | Build 50k items | 0.014 ms | 37.4 ms | — | **2,671x** |
 | Build 100 sections x 100 | 0.058 ms | 7.3 ms | 4.2 ms | **126x** |
 
-Type erasure alone (`eraseToAnyViewModel()`) costs 7.1 ms for 10k cells — more than ListKit's entire snapshot build at the same scale.
-
-Run benchmarks with:
-
-```
-make benchmark
-```
+Run benchmarks with `make benchmark`.
 
 ## Development
 
-### Setup
-
 ```bash
-make setup    # install Tuist, fetch dependencies, generate project, install hooks
-```
-
-### Common Commands
-
-```bash
+make setup       # install Tuist, fetch dependencies, generate project, install hooks
 make build       # build ListKit + Lists frameworks
 make test        # run all tests (ListKit + Lists)
 make benchmark   # run performance benchmarks
 make format      # format code with SwiftFormat
 make lint        # lint with SwiftFormat
 make open        # open in Xcode
-```
-
-### Project Structure
-
-```
-Sources/
-  ListKit/          # Low-level diffing + data source
-    Algorithm/      # HeckelDiff, SectionedDiff, StagedChangeset
-    DataSource/     # CollectionViewDiffableDataSource
-    Snapshot/       # DiffableDataSourceSnapshot, SectionSnapshot
-  Lists/            # High-level declarative API
-    Protocols/      # CellViewModel, SectionModel
-    DataSource/     # ListDataSource, MixedListDataSource
-    Builder/        # SnapshotBuilder, ItemsBuilder, MixedSnapshotBuilder, DSL extensions
-    Mixed/          # AnyItem, DynamicCellRegistrar
-    Configurations/ # SimpleList, GroupedList, OutlineList
-    SwiftUI/        # SimpleListView, GroupedListView, OutlineListView, SwiftUICellViewModel
-    Extensions/     # LayoutHelpers, CellViewModel+Identifiable
-Tests/
-  ListKitTests/     # Diff, snapshot, data source
-  ListsTests/       # Builder, configurations, view models
-  Benchmarks/       # Apple, IGListKit, ReactiveCollectionsKit
-Example/            # Demo app
 ```
 
 ## License
