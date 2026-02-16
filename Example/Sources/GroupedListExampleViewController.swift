@@ -51,7 +51,8 @@ final class GroupedListExampleViewController: UIViewController {
 
     groupedList = GroupedList<SectionID, SettingItem>(
       appearance: .insetGrouped,
-      showsSeparators: true
+      showsSeparators: true,
+      separatorColor: .systemGray4
     )
     groupedList.collectionView.frame = view.bounds
     groupedList.collectionView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
@@ -68,6 +69,34 @@ final class GroupedListExampleViewController: UIViewController {
     groupedList.onDelete = { [weak self] item in
       guard let self else { return }
       removeItem(item)
+    }
+
+    groupedList.trailingSwipeActionsProvider = { [weak self] item in
+      let delete = UIContextualAction(style: .destructive, title: "Delete") { _, _, completion in
+        self?.removeItem(item)
+        completion(true)
+      }
+      delete.image = UIImage(systemName: "trash.fill")
+
+      let archive = UIContextualAction(style: .normal, title: "Archive") { _, _, completion in
+        print("Archived \(item.title)")
+        completion(true)
+      }
+      archive.image = UIImage(systemName: "archivebox.fill")
+      archive.backgroundColor = .systemIndigo
+
+      return UISwipeActionsConfiguration(actions: [delete, archive])
+    }
+
+    groupedList.separatorHandler = { [weak self] item, config in
+      guard let self else { return config }
+      let isAccountItem = sectionItems.first(where: { $0.id == .account })?.items.contains(where: { $0.id == item.id }) ?? false
+      if isAccountItem {
+        var config = config
+        config.color = .systemRed
+        return config
+      }
+      return config
     }
 
     groupedList.onMove = { [weak self] source, destination in

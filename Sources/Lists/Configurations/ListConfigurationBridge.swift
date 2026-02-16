@@ -1,4 +1,4 @@
-import UIKit
+@preconcurrency import UIKit
 
 /// A reference-type bridge that resolves `IndexPath` -> `Item` for layout configuration handlers
 /// and centralizes shared delegate logic across all list types.
