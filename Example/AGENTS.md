@@ -15,7 +15,7 @@ Example/
     ├── AppDelegate.swift                — App lifecycle
     ├── SceneDelegate.swift              — Window setup with tab bar
     ├── ListKitExampleViewController.swift    — Raw ListKit API usage
-    ├── DSLExampleViewController.swift        — ListDataSource with DSL
+    ├── DSLExampleViewController.swift        — GroupedList with SnapshotBuilder DSL
     ├── LiveExampleViewController.swift       — Real-time updates demo
     ├── GroupedListExampleViewController.swift — Multi-section grouped list
     ├── OutlineExampleViewController.swift    — Hierarchical expand/collapse

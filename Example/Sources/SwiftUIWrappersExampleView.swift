@@ -155,6 +155,8 @@ private struct GroupedDemoView: View {
         ),
       ]
     )
+    .editing(isEditing)
+    .allowsMultipleSelection(isEditing)
     .onSelect { item in
       print("Selected: \(item.name)")
     }
@@ -187,16 +189,25 @@ private struct GroupedDemoView: View {
       frameworks.shuffle()
     }
     .overlay(alignment: .bottom) {
-      Button("Shuffle") {
-        languages.shuffle()
-        frameworks.shuffle()
+      HStack(spacing: 12) {
+        Button(isEditing ? "Done" : "Edit") {
+          isEditing.toggle()
+        }
+        .buttonStyle(.borderedProminent)
+
+        Button("Shuffle") {
+          languages.shuffle()
+          frameworks.shuffle()
+        }
+        .buttonStyle(.bordered)
       }
-      .buttonStyle(.borderedProminent)
       .padding()
     }
   }
 
   // MARK: Private
+
+  @State private var isEditing = false
 
   @State private var languages = [
     LanguageItem(name: "Swift", year: 2014),
