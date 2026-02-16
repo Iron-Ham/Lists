@@ -212,4 +212,47 @@ struct SimpleListTests {
     let list = SimpleList<TextItem>(showsSeparators: false)
     #expect(list.collectionView.collectionViewLayout is UICollectionViewCompositionalLayout)
   }
+
+  @Test
+  func numberOfItemsAndSections() async {
+    let list = SimpleList<TextItem>()
+    #expect(list.numberOfItems == 0)
+    #expect(list.numberOfSections == 0)
+
+    await list.setItems([TextItem(text: "A"), TextItem(text: "B")], animatingDifferences: false)
+    #expect(list.numberOfItems == 2)
+    #expect(list.numberOfSections == 1)
+  }
+
+  @Test
+  func selectedItemsDefaultsToEmpty() async {
+    let list = SimpleList<TextItem>()
+    await list.setItems([TextItem(text: "A")], animatingDifferences: false)
+    #expect(list.selectedItems.isEmpty)
+  }
+
+  @Test
+  func selectedItemsReturnsCorrectItems() async {
+    let list = SimpleList<TextItem>()
+    let a = TextItem(text: "A")
+    let b = TextItem(text: "B")
+    await list.setItems([a, b], animatingDifferences: false)
+
+    list.collectionView.selectItem(at: IndexPath(item: 0, section: 0), animated: false, scrollPosition: [])
+    #expect(list.selectedItems == [a])
+  }
+
+  @Test
+  func deselectAllClearsSelection() async {
+    let list = SimpleList<TextItem>()
+    list.allowsMultipleSelection = true
+    await list.setItems([TextItem(text: "A"), TextItem(text: "B")], animatingDifferences: false)
+
+    list.collectionView.selectItem(at: IndexPath(item: 0, section: 0), animated: false, scrollPosition: [])
+    list.collectionView.selectItem(at: IndexPath(item: 1, section: 0), animated: false, scrollPosition: [])
+    #expect((list.collectionView.indexPathsForSelectedItems ?? []).count == 2)
+
+    list.deselectAll(animated: false)
+    #expect((list.collectionView.indexPathsForSelectedItems ?? []).isEmpty)
+  }
 }

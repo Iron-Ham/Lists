@@ -218,6 +218,21 @@ public final class GroupedList<SectionID: Hashable & Sendable, Item: CellViewMod
     didSet { configureReorderIfNeeded() }
   }
 
+  /// The total number of items across all sections.
+  public var numberOfItems: Int {
+    dataSource.snapshot().numberOfItems
+  }
+
+  /// The number of sections in the list.
+  public var numberOfSections: Int {
+    dataSource.snapshot().numberOfSections
+  }
+
+  /// The currently selected items, derived from the collection view's selected index paths.
+  public var selectedItems: [Item] {
+    (collectionView.indexPathsForSelectedItems ?? []).compactMap { bridge.itemIdentifier(for: $0) }
+  }
+
   /// Replaces all sections, computing and animating the diff.
   ///
   /// Cancels any previously queued apply so only the most recent snapshot is applied,
@@ -294,6 +309,32 @@ public final class GroupedList<SectionID: Hashable & Sendable, Item: CellViewMod
   /// Returns the index path for the specified item, or `nil` if not found.
   public func indexPath(for item: Item) -> IndexPath? {
     bridge.indexPath(for: item)
+  }
+
+  /// Returns the section identifier at the given section index, or `nil` if out of bounds.
+  public func sectionIdentifier(for index: Int) -> SectionID? {
+    bridge.sectionIdentifier(for: index)
+  }
+
+  /// Returns the index of the specified section identifier, or `nil` if not found.
+  public func index(for sectionIdentifier: SectionID) -> Int? {
+    bridge.index(for: sectionIdentifier)
+  }
+
+  /// Returns the items in the specified section, or `nil` if the section is not found.
+  public func items(in section: SectionID) -> [Item]? {
+    let snap = dataSource.snapshot()
+    guard snap.sectionIdentifiers.contains(section) else { return nil }
+    return snap.itemIdentifiers(inSection: section)
+  }
+
+  /// Deselects all currently selected items.
+  ///
+  /// - Parameter animated: Whether the deselection should be animated.
+  public func deselectAll(animated: Bool = true) {
+    for indexPath in collectionView.indexPathsForSelectedItems ?? [] {
+      collectionView.deselectItem(at: indexPath, animated: animated)
+    }
   }
 
   /// Programmatically scrolls to the specified item.

@@ -120,6 +120,16 @@ final class ListConfigurationBridge<SectionID: Hashable & Sendable, Item: CellVi
     dataSource?.indexPath(for: item)
   }
 
+  /// Returns the section identifier for the given section index.
+  func sectionIdentifier(for index: Int) -> SectionID? {
+    dataSource?.sectionIdentifier(for: index)
+  }
+
+  /// Returns the index of the specified section identifier.
+  func index(for sectionIdentifier: SectionID) -> Int? {
+    dataSource?.index(for: sectionIdentifier)
+  }
+
   /// Programmatically scrolls to the specified item.
   ///
   /// - Returns: `true` if the item was found and the scroll was initiated, `false` if the

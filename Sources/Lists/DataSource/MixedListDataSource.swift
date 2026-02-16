@@ -33,6 +33,18 @@ public final class MixedListDataSource<SectionID: Hashable & Sendable> {
     set { dataSource.supplementaryViewProvider = newValue }
   }
 
+  /// Optional closure to determine whether a specific item can be reordered.
+  public var canMoveItemHandler: (@MainActor (IndexPath) -> Bool)? {
+    get { dataSource.canMoveItemHandler }
+    set { dataSource.canMoveItemHandler = newValue }
+  }
+
+  /// Optional closure called after the user finishes reordering an item.
+  public var didMoveItemHandler: (@MainActor (IndexPath, IndexPath) -> Void)? {
+    get { dataSource.didMoveItemHandler }
+    set { dataSource.didMoveItemHandler = newValue }
+  }
+
   /// Applies the given snapshot, computing and animating the minimal diff.
   ///
   /// Items whose wrapped type conforms to ``ContentEquatable`` are automatically
