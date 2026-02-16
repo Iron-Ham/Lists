@@ -192,4 +192,250 @@ struct ListAccessoryTests {
     ]
     #expect(set.count == 3)
   }
+
+  @Test
+  func toggleEqualityWithSameState() {
+    let a = ListAccessory.toggle(isOn: true) { _ in }
+    let b = ListAccessory.toggle(isOn: true) { _ in }
+    #expect(a == b)
+  }
+
+  @Test
+  func toggleInequalityWithDifferentState() {
+    let a = ListAccessory.toggle(isOn: true) { _ in }
+    let b = ListAccessory.toggle(isOn: false) { _ in }
+    #expect(a != b)
+  }
+
+  @Test
+  func toggleInequalityWithDifferentKeys() {
+    let a = ListAccessory.toggle(isOn: true, key: "a") { _ in }
+    let b = ListAccessory.toggle(isOn: true, key: "b") { _ in }
+    #expect(a != b)
+  }
+
+  @Test
+  func toggleHashesMatchForSameState() {
+    let a = ListAccessory.toggle(isOn: false) { _ in }
+    let b = ListAccessory.toggle(isOn: false) { _ in }
+    #expect(a.hashValue == b.hashValue)
+  }
+
+  @Test
+  func toggleHashesDifferForDifferentState() {
+    let a = ListAccessory.toggle(isOn: true) { _ in }
+    let b = ListAccessory.toggle(isOn: false) { _ in }
+    #expect(a.hashValue != b.hashValue)
+  }
+
+  @Test
+  func toggleNotEqualToOtherCases() {
+    let toggle = ListAccessory.toggle(isOn: true) { _ in }
+    #expect(toggle != .checkmark)
+    #expect(toggle != .detail)
+    #expect(toggle != .activityIndicator)
+  }
+
+  @Test
+  func toggleUIAccessoryProducesAccessory() {
+    let accessory = ListAccessory.toggle(isOn: true) { _ in }
+    _ = accessory.uiAccessory
+  }
+
+  @Test
+  func badgeEqualityWithSameText() {
+    let a = ListAccessory.badge("3")
+    let b = ListAccessory.badge("3")
+    #expect(a == b)
+  }
+
+  @Test
+  func badgeInequalityWithDifferentText() {
+    let a = ListAccessory.badge("3")
+    let b = ListAccessory.badge("99")
+    #expect(a != b)
+  }
+
+  @Test
+  func badgeHashesMatchForSameText() {
+    let a = ListAccessory.badge("New")
+    let b = ListAccessory.badge("New")
+    #expect(a.hashValue == b.hashValue)
+  }
+
+  @Test
+  func badgeHashesDifferForDifferentText() {
+    let a = ListAccessory.badge("A")
+    let b = ListAccessory.badge("B")
+    #expect(a.hashValue != b.hashValue)
+  }
+
+  @Test
+  func badgeNotEqualToOtherCases() {
+    let badge = ListAccessory.badge("1")
+    #expect(badge != .checkmark)
+    #expect(badge != .label(text: "1"))
+  }
+
+  @Test
+  func badgeUIAccessoryProducesAccessory() {
+    let accessory = ListAccessory.badge("42")
+    _ = accessory.uiAccessory
+  }
+
+  @Test
+  func imageEqualityWithSameName() {
+    let a = ListAccessory.image(systemName: "star")
+    let b = ListAccessory.image(systemName: "star")
+    #expect(a == b)
+  }
+
+  @Test
+  func imageInequalityWithDifferentName() {
+    let a = ListAccessory.image(systemName: "star")
+    let b = ListAccessory.image(systemName: "heart")
+    #expect(a != b)
+  }
+
+  @Test
+  func imageHashesMatchForSameName() {
+    let a = ListAccessory.image(systemName: "star")
+    let b = ListAccessory.image(systemName: "star")
+    #expect(a.hashValue == b.hashValue)
+  }
+
+  @Test
+  func imageHashesDifferForDifferentName() {
+    let a = ListAccessory.image(systemName: "star")
+    let b = ListAccessory.image(systemName: "heart")
+    #expect(a.hashValue != b.hashValue)
+  }
+
+  @Test
+  func imageNotEqualToOtherCases() {
+    let image = ListAccessory.image(systemName: "star")
+    #expect(image != .checkmark)
+    #expect(image != .detail)
+  }
+
+  @Test
+  func imageUIAccessoryProducesAccessory() {
+    let accessory = ListAccessory.image(systemName: "chevron.right")
+    _ = accessory.uiAccessory
+  }
+
+  @Test
+  func progressEqualityWithSameValue() {
+    let a = ListAccessory.progress(0.5)
+    let b = ListAccessory.progress(0.5)
+    #expect(a == b)
+  }
+
+  @Test
+  func progressInequalityWithDifferentValue() {
+    let a = ListAccessory.progress(0.25)
+    let b = ListAccessory.progress(0.75)
+    #expect(a != b)
+  }
+
+  @Test
+  func progressHashesMatchForSameValue() {
+    let a = ListAccessory.progress(0.5)
+    let b = ListAccessory.progress(0.5)
+    #expect(a.hashValue == b.hashValue)
+  }
+
+  @Test
+  func progressHashesDifferForDifferentValue() {
+    let a = ListAccessory.progress(0.0)
+    let b = ListAccessory.progress(1.0)
+    #expect(a.hashValue != b.hashValue)
+  }
+
+  @Test
+  func progressNotEqualToOtherCases() {
+    let progress = ListAccessory.progress(0.5)
+    #expect(progress != .checkmark)
+    #expect(progress != .activityIndicator)
+  }
+
+  @Test
+  func progressUIAccessoryProducesAccessory() {
+    let accessory = ListAccessory.progress(0.75)
+    _ = accessory.uiAccessory
+  }
+
+  @Test
+  func activityIndicatorEquality() {
+    #expect(ListAccessory.activityIndicator == .activityIndicator)
+  }
+
+  @Test
+  func activityIndicatorHashConsistency() {
+    #expect(ListAccessory.activityIndicator.hashValue == ListAccessory.activityIndicator.hashValue)
+  }
+
+  @Test
+  func activityIndicatorNotEqualToOtherCases() {
+    #expect(ListAccessory.activityIndicator != .checkmark)
+    #expect(ListAccessory.activityIndicator != .detail)
+    #expect(ListAccessory.activityIndicator != .progress(1.0))
+  }
+
+  @Test
+  func activityIndicatorUIAccessoryProducesAccessory() {
+    let accessory = ListAccessory.activityIndicator
+    _ = accessory.uiAccessory
+  }
+
+  @Test
+  func canBeUsedInSetWithNewCases() {
+    let set: Set<ListAccessory> = [
+      .disclosureIndicator,
+      .badge("3"),
+      .badge("5"),
+      .image(systemName: "star"),
+      .progress(0.5),
+      .activityIndicator,
+      .toggle(isOn: true) { _ in },
+      .toggle(isOn: false) { _ in },
+    ]
+    #expect(set.count == 8)
+    #expect(set.contains(.badge("3")))
+    #expect(!set.contains(.badge("99")))
+    #expect(set.contains(.activityIndicator))
+    #expect(set.contains(.toggle(isOn: true) { _ in }))
+    #expect(set.contains(.toggle(isOn: false) { _ in }))
+  }
+
+  @Test
+  func toggleEqualityIgnoresOnChangeClosure() {
+    var capturedA = false
+    var capturedB = false
+    let a = ListAccessory.toggle(isOn: true) { capturedA = $0 }
+    let b = ListAccessory.toggle(isOn: true) { capturedB = $0 }
+    // Different closures, same isOn/key → equal
+    #expect(a == b)
+    _ = capturedA
+    _ = capturedB
+  }
+
+  @Test
+  func progressBoundaryValues() {
+    let zero = ListAccessory.progress(0.0)
+    let one = ListAccessory.progress(1.0)
+    #expect(zero == .progress(0.0))
+    #expect(one == .progress(1.0))
+    #expect(zero != one)
+    _ = zero.uiAccessory
+    _ = one.uiAccessory
+  }
+
+  @Test
+  func badgeWithEmptyString() {
+    let empty = ListAccessory.badge("")
+    #expect(empty == .badge(""))
+    #expect(empty != .badge("x"))
+    _ = empty.uiAccessory
+  }
 }

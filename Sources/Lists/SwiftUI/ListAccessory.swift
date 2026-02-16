@@ -32,6 +32,24 @@ public enum ListAccessory: @unchecked Sendable, Hashable {
   ///   must be created and accessed on `@MainActor`.
   case popUpMenu(UIMenu, key: AnyHashable)
 
+  /// An inline toggle switch for settings-style cells.
+  ///
+  /// The `key` is used for equality alongside `isOn` — the `onChange` closure is ignored for diffing.
+  /// Use ``toggle(isOn:key:onChange:)`` for a convenience initializer with a default key.
+  case toggle(isOn: Bool, onChange: @MainActor (Bool) -> Void, key: AnyHashable)
+
+  /// A pill-shaped badge displaying a short text string (e.g., a count or status label).
+  case badge(_ text: String)
+
+  /// A trailing SF Symbol image.
+  case image(systemName: String)
+
+  /// A small inline progress bar showing a value between 0.0 and 1.0.
+  case progress(_ value: Double)
+
+  /// A spinning activity indicator for loading states.
+  case activityIndicator
+
   /// Escape hatch for parameterized accessories (e.g., `UICellAccessory.detail(actionHandler:)`).
   /// The `key` is used for equality — two `.custom` values are equal when their keys match.
   case custom(UICellAccessory, key: AnyHashable)
@@ -39,18 +57,75 @@ public enum ListAccessory: @unchecked Sendable, Hashable {
   // MARK: Public
 
   /// Converts to the UIKit `UICellAccessory` equivalent.
+  @MainActor
   public var uiAccessory: UICellAccessory {
     switch self {
-    case .disclosureIndicator: .disclosureIndicator()
-    case .checkmark: .checkmark()
-    case .delete: .delete()
-    case .reorder: .reorder()
-    case .outlineDisclosure: .outlineDisclosure()
-    case .detail: .detail()
-    case .multiselect: .multiselect()
-    case .label(let text): .label(text: text)
-    case .popUpMenu(let menu, key: _): .popUpMenu(menu)
-    case .custom(let accessory, _): accessory
+    case .disclosureIndicator:
+      return .disclosureIndicator()
+
+    case .checkmark:
+      return .checkmark()
+
+    case .delete:
+      return .delete()
+
+    case .reorder:
+      return .reorder()
+
+    case .outlineDisclosure:
+      return .outlineDisclosure()
+
+    case .detail:
+      return .detail()
+
+    case .multiselect:
+      return .multiselect()
+
+    case .label(let text):
+      return .label(text: text)
+
+    case .toggle(let isOn, let onChange, key: _):
+      let toggle = UISwitch()
+      toggle.isOn = isOn
+      toggle.addAction(UIAction { action in
+        guard let sender = action.sender as? UISwitch else {
+          assertionFailure("Expected UISwitch sender for toggle action")
+          return
+        }
+        onChange(sender.isOn)
+      }, for: .valueChanged)
+      return .customView(configuration: .init(customView: toggle, placement: .trailing()))
+
+    case .badge(let text):
+      let badgeLabel = BadgeLabel(text: text)
+      return .customView(configuration: .init(customView: badgeLabel, placement: .trailing()))
+
+    case .image(let systemName):
+      let image = UIImage(systemName: systemName)
+      assert(image != nil, "Invalid SF Symbol name: \(systemName)")
+      let imageView = UIImageView(image: image)
+      imageView.tintColor = .secondaryLabel
+      imageView.contentMode = .scaleAspectFit
+      return .customView(configuration: .init(customView: imageView, placement: .trailing()))
+
+    case .progress(let value):
+      assert((0.0...1.0).contains(value), "Progress value \(value) outside expected range 0.0...1.0")
+      let progressView = UIProgressView(progressViewStyle: .default)
+      progressView.progress = Float(value)
+      progressView.translatesAutoresizingMaskIntoConstraints = false
+      progressView.widthAnchor.constraint(equalToConstant: 60).isActive = true
+      return .customView(configuration: .init(customView: progressView, placement: .trailing()))
+
+    case .activityIndicator:
+      let spinner = UIActivityIndicatorView(style: .medium)
+      spinner.startAnimating()
+      return .customView(configuration: .init(customView: spinner, placement: .trailing()))
+
+    case .popUpMenu(let menu, key: _):
+      return .popUpMenu(menu)
+
+    case .custom(let accessory, _):
+      return accessory
     }
   }
 
@@ -61,6 +136,19 @@ public enum ListAccessory: @unchecked Sendable, Hashable {
   /// with a unique key: `.popUpMenu(menu, key: "uniqueID")`.
   public static func popUpMenu(_ menu: UIMenu) -> ListAccessory {
     .popUpMenu(menu, key: AnyHashable("popUpMenu"))
+  }
+
+  /// Creates an inline toggle switch with a default key.
+  ///
+  /// All `toggle` accessories created this way compare by `isOn` state and the default key.
+  /// If you need multiple toggles in the same cell, use the case initializer directly
+  /// with a unique key: `.toggle(isOn: value, onChange: handler, key: "uniqueID")`.
+  public static func toggle(
+    isOn: Bool,
+    key: AnyHashable = AnyHashable("toggle"),
+    onChange: @escaping @MainActor (Bool) -> Void
+  ) -> ListAccessory {
+    .toggle(isOn: isOn, onChange: onChange, key: key)
   }
 
   /// Creates a detail (info) button with an action handler.
@@ -82,10 +170,19 @@ public enum ListAccessory: @unchecked Sendable, Hashable {
          (.reorder, .reorder),
          (.outlineDisclosure, .outlineDisclosure),
          (.detail, .detail),
-         (.multiselect, .multiselect):
+         (.multiselect, .multiselect),
+         (.activityIndicator, .activityIndicator):
       true
     case (.label(let lhsText), .label(let rhsText)):
       lhsText == rhsText
+    case (.toggle(let lhsOn, _, let lhsKey), .toggle(let rhsOn, _, let rhsKey)):
+      lhsOn == rhsOn && lhsKey == rhsKey
+    case (.badge(let lhsText), .badge(let rhsText)):
+      lhsText == rhsText
+    case (.image(let lhsName), .image(let rhsName)):
+      lhsName == rhsName
+    case (.progress(let lhsValue), .progress(let rhsValue)):
+      lhsValue == rhsValue
     case (.popUpMenu(_, key: let lhsKey), .popUpMenu(_, key: let rhsKey)):
       lhsKey == rhsKey
     case (.custom(_, let lhsKey), .custom(_, let rhsKey)):
@@ -122,7 +219,77 @@ public enum ListAccessory: @unchecked Sendable, Hashable {
     case .custom(_, let key):
       hasher.combine(9)
       hasher.combine(key)
+
+    case .toggle(let isOn, _, let key):
+      hasher.combine(10)
+      hasher.combine(isOn)
+      hasher.combine(key)
+
+    case .badge(let text):
+      hasher.combine(11)
+      hasher.combine(text)
+
+    case .image(let systemName):
+      hasher.combine(12)
+      hasher.combine(systemName)
+
+    case .progress(let value):
+      hasher.combine(13)
+      hasher.combine(value)
+
+    case .activityIndicator:
+      hasher.combine(14)
     }
+  }
+
+  // MARK: Private
+
+  /// A pill-shaped label used by the `.badge` accessory.
+  private final class BadgeLabel: UILabel {
+
+    // MARK: Lifecycle
+
+    convenience init(text: String) {
+      self.init(frame: .zero)
+      self.text = text
+      let descriptor = UIFontDescriptor.preferredFontDescriptor(withTextStyle: .caption2)
+        .withSymbolicTraits(.traitBold) ?? UIFontDescriptor.preferredFontDescriptor(withTextStyle: .caption2)
+      font = UIFont(descriptor: descriptor, size: 0)
+      textColor = tintColor
+      backgroundColor = tintColor.withAlphaComponent(0.15)
+      textAlignment = .center
+      clipsToBounds = true
+    }
+
+    // MARK: Internal
+
+    override var intrinsicContentSize: CGSize {
+      let base = super.intrinsicContentSize
+      return CGSize(
+        width: base.width + insets.left + insets.right,
+        height: base.height + insets.top + insets.bottom
+      )
+    }
+
+    override func tintColorDidChange() {
+      super.tintColorDidChange()
+      textColor = tintColor
+      backgroundColor = tintColor.withAlphaComponent(0.15)
+    }
+
+    override func drawText(in rect: CGRect) {
+      super.drawText(in: rect.inset(by: insets))
+    }
+
+    override func layoutSubviews() {
+      super.layoutSubviews()
+      layer.cornerRadius = bounds.height / 2
+    }
+
+    // MARK: Private
+
+    private let insets = UIEdgeInsets(top: 2, left: 8, bottom: 2, right: 8)
+
   }
 
 }

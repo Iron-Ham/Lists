@@ -317,6 +317,7 @@ private struct LanguageItem: SwiftUICellViewModel, Identifiable {
   let id = UUID()
   let name: String
   let year: Int
+  var isFavorite = false
 
   var body: some View {
     Text(name)
@@ -326,6 +327,8 @@ private struct LanguageItem: SwiftUICellViewModel, Identifiable {
 
   var accessories: [ListAccessory] {
     [
+      .badge(String(year)),
+      .image(systemName: isFavorite ? "star.fill" : "star"),
       .popUpMenu(UIMenu(title: "", children: [
         UIAction(title: "Copy", image: UIImage(systemName: "doc.on.doc")) { _ in
           UIPasteboard.general.string = name
@@ -334,9 +337,6 @@ private struct LanguageItem: SwiftUICellViewModel, Identifiable {
           print("Share \(name)")
         },
       ])),
-      .multiselect,
-      .label(text: String(year)),
-      .detail(actionHandler: { print("Detail tapped for \(name)") }),
       .disclosureIndicator,
     ]
   }
