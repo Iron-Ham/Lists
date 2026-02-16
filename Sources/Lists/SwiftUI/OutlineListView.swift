@@ -12,27 +12,22 @@ public struct OutlineListView<Item: CellViewModel>: UIViewRepresentable {
 
   // MARK: Lifecycle
 
+  /// Creates an outline list view with layout configuration.
+  ///
+  /// Use chained modifiers for behavioral configuration:
+  /// ```swift
+  /// OutlineListView(items: tree, appearance: .sidebar)
+  ///     .onSelect { item in navigateTo(item) }
+  ///     .onDelete { item in remove(item) }
+  ///     .onRefresh { await reload() }
+  /// ```
   public init(
     items: [OutlineItem<Item>],
     appearance: UICollectionLayoutListConfiguration.Appearance = .sidebar,
     showsSeparators: Bool = true,
     separatorColor: UIColor? = nil,
     backgroundColor: UIColor? = nil,
-    headerTopPadding: CGFloat? = nil,
-    allowsMultipleSelection: Bool = false,
-    allowsSelectionDuringEditing: Bool = false,
-    allowsMultipleSelectionDuringEditing: Bool = false,
-    isEditing: Bool = false,
-    onSelect: (@MainActor (Item) -> Void)? = nil,
-    onDeselect: (@MainActor (Item) -> Void)? = nil,
-    onDelete: (@MainActor (Item) -> Void)? = nil,
-    trailingSwipeActionsProvider: (@MainActor (Item) -> UISwipeActionsConfiguration?)? = nil,
-    leadingSwipeActionsProvider: (@MainActor (Item) -> UISwipeActionsConfiguration?)? = nil,
-    contextMenuProvider: (@MainActor (Item) -> UIContextMenuConfiguration?)? = nil,
-    separatorHandler: (@MainActor (Item, UIListSeparatorConfiguration) -> UIListSeparatorConfiguration)? = nil,
-    onRefresh: (@MainActor () async -> Void)? = nil,
-    collectionViewHandler: (@MainActor (UICollectionView) -> Void)? = nil,
-    scrollViewDelegate: UIScrollViewDelegate? = nil
+    headerTopPadding: CGFloat? = nil
   ) {
     self.items = items
     self.appearance = appearance
@@ -40,20 +35,6 @@ public struct OutlineListView<Item: CellViewModel>: UIViewRepresentable {
     self.separatorColor = separatorColor
     self.backgroundColor = backgroundColor
     self.headerTopPadding = headerTopPadding
-    self.allowsMultipleSelection = allowsMultipleSelection
-    self.allowsSelectionDuringEditing = allowsSelectionDuringEditing
-    self.allowsMultipleSelectionDuringEditing = allowsMultipleSelectionDuringEditing
-    self.isEditing = isEditing
-    self.onSelect = onSelect
-    self.onDeselect = onDeselect
-    self.onDelete = onDelete
-    self.trailingSwipeActionsProvider = trailingSwipeActionsProvider
-    self.leadingSwipeActionsProvider = leadingSwipeActionsProvider
-    self.contextMenuProvider = contextMenuProvider
-    self.separatorHandler = separatorHandler
-    self.onRefresh = onRefresh
-    self.collectionViewHandler = collectionViewHandler
-    self.scrollViewDelegate = scrollViewDelegate
   }
 
   // MARK: Public
@@ -128,13 +109,13 @@ public struct OutlineListView<Item: CellViewModel>: UIViewRepresentable {
   ///   changes to this value will not update the existing collection view layout.
   public let headerTopPadding: CGFloat?
   /// Whether the list allows multiple simultaneous selections.
-  public let allowsMultipleSelection: Bool
+  public var allowsMultipleSelection = false
   /// Whether selection is allowed during editing mode.
-  public let allowsSelectionDuringEditing: Bool
+  public var allowsSelectionDuringEditing = false
   /// Whether multiple selection is allowed during editing mode.
-  public let allowsMultipleSelectionDuringEditing: Bool
+  public var allowsMultipleSelectionDuringEditing = false
   /// Whether the list is in editing mode.
-  public let isEditing: Bool
+  public var isEditing = false
   /// Called when the user taps an item.
   public var onSelect: (@MainActor (Item) -> Void)?
   /// Called when the user deselects an item (relevant when `allowsMultipleSelection` is enabled).
@@ -272,10 +253,6 @@ extension OutlineListView {
     separatorColor: UIColor? = nil,
     backgroundColor: UIColor? = nil,
     headerTopPadding: CGFloat? = nil,
-    allowsMultipleSelection: Bool = false,
-    allowsSelectionDuringEditing: Bool = false,
-    allowsMultipleSelectionDuringEditing: Bool = false,
-    isEditing: Bool = false,
     accessories: [ListAccessory] = [],
     onSelect: (@MainActor (Data) -> Void)? = nil,
     onDeselect: (@MainActor (Data) -> Void)? = nil,
@@ -284,9 +261,6 @@ extension OutlineListView {
     leadingSwipeActionsProvider: (@MainActor (Data) -> UISwipeActionsConfiguration?)? = nil,
     contextMenuProvider: (@MainActor (Data) -> UIContextMenuConfiguration?)? = nil,
     separatorHandler: (@MainActor (Data, UIListSeparatorConfiguration) -> UIListSeparatorConfiguration)? = nil,
-    onRefresh: (@MainActor () async -> Void)? = nil,
-    collectionViewHandler: (@MainActor (UICollectionView) -> Void)? = nil,
-    scrollViewDelegate: UIScrollViewDelegate? = nil,
     @ViewBuilder content: @escaping @MainActor (Data) -> some View
   ) where Item == InlineCellViewModel<Data> {
     let mapped = items.map { $0.mapItems { InlineCellViewModel(data: $0, accessories: accessories, content: content) } }
@@ -297,13 +271,6 @@ extension OutlineListView {
     self.separatorColor = separatorColor
     self.backgroundColor = backgroundColor
     self.headerTopPadding = headerTopPadding
-    self.allowsMultipleSelection = allowsMultipleSelection
-    self.allowsSelectionDuringEditing = allowsSelectionDuringEditing
-    self.allowsMultipleSelectionDuringEditing = allowsMultipleSelectionDuringEditing
-    self.isEditing = isEditing
-    self.onRefresh = onRefresh
-    self.collectionViewHandler = collectionViewHandler
-    self.scrollViewDelegate = scrollViewDelegate
 
     if let onSelect {
       self.onSelect = { item in onSelect(item.data) }

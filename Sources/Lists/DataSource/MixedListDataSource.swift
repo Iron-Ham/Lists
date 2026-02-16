@@ -34,7 +34,12 @@ public final class MixedListDataSource<SectionID: Hashable & Sendable> {
   }
 
   /// Applies the given snapshot, computing and animating the minimal diff.
+  ///
+  /// Items whose wrapped type conforms to ``ContentEquatable`` are automatically
+  /// checked for content changes and marked for reconfiguration.
   public func apply(_ snapshot: Snapshot, animatingDifferences: Bool = true) async {
+    var snapshot = snapshot
+    autoReconfigure(old: dataSource.snapshot(), new: &snapshot)
     await dataSource.apply(snapshot, animatingDifferences: animatingDifferences)
   }
 
@@ -54,7 +59,7 @@ public final class MixedListDataSource<SectionID: Hashable & Sendable> {
       snapshot.appendSections([section.id])
       snapshot.appendItems(section.items, toSection: section.id)
     }
-    await dataSource.apply(snapshot, animatingDifferences: animatingDifferences)
+    await apply(snapshot, animatingDifferences: animatingDifferences)
   }
 
   /// Applies a hierarchical section snapshot to a specific section for outline-style content.
@@ -95,5 +100,30 @@ public final class MixedListDataSource<SectionID: Hashable & Sendable> {
 
   private let registrar: DynamicCellRegistrar
   private let dataSource: CollectionViewDiffableDataSource<SectionID, AnyItem>
+
+  /// Detects content changes for ``AnyItem`` values whose wrapped types conform to
+  /// ``ContentEquatable`` and marks them for reconfiguration.
+  private func autoReconfigure(old: Snapshot, new: inout Snapshot) {
+    let oldItems = old.itemIdentifiers
+    guard !oldItems.isEmpty else { return }
+
+    var oldLookup = [AnyItem: AnyItem]()
+    oldLookup.reserveCapacity(oldItems.count)
+    for item in oldItems {
+      oldLookup[item] = item
+    }
+
+    var toReconfigure = [AnyItem]()
+    for newItem in new.itemIdentifiers {
+      guard let oldItem = oldLookup[newItem] else { continue }
+      if !newItem.isContentEqual(to: oldItem) {
+        toReconfigure.append(newItem)
+      }
+    }
+
+    if !toReconfigure.isEmpty {
+      new.reconfigureItems(toReconfigure)
+    }
+  }
 
 }

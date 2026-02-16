@@ -201,4 +201,112 @@ struct SnapshotBuilderTests {
 
     #expect(snapshot.numberOfSections == 2)
   }
+
+  @Test
+  func snapshotSectionWithHeader() {
+    let section = SnapshotSection<String, NumberItem>("test", header: "My Header") {
+      NumberItem(value: 1)
+    }
+
+    #expect(section.id == "test")
+    #expect(section.header == "My Header")
+    #expect(section.footer == nil)
+    #expect(section.items.count == 1)
+  }
+
+  @Test
+  func snapshotSectionWithHeaderAndFooter() {
+    let section = SnapshotSection<String, NumberItem>(
+      "test",
+      header: "Header",
+      footer: "Footer"
+    ) {
+      NumberItem(value: 1)
+      NumberItem(value: 2)
+    }
+
+    #expect(section.header == "Header")
+    #expect(section.footer == "Footer")
+    #expect(section.items.count == 2)
+  }
+
+  @Test
+  func snapshotSectionArrayInitWithHeader() {
+    let items = [NumberItem(value: 1), NumberItem(value: 2)]
+    let section = SnapshotSection("test", items: items, header: "Header", footer: "Footer")
+
+    #expect(section.header == "Header")
+    #expect(section.footer == "Footer")
+    #expect(section.items == items)
+  }
+
+  @Test
+  func snapshotSectionDefaultsHeaderFooterToNil() {
+    let section = SnapshotSection<String, NumberItem>("test") {
+      NumberItem(value: 1)
+    }
+
+    #expect(section.header == nil)
+    #expect(section.footer == nil)
+  }
+
+  @Test
+  func sectionModelBuilderInit() {
+    let section = SectionModel(id: "friends", header: "Friends") {
+      NumberItem(value: 1)
+      NumberItem(value: 2)
+      NumberItem(value: 3)
+    }
+
+    #expect(section.id == "friends")
+    #expect(section.header == "Friends")
+    #expect(section.footer == nil)
+    #expect(section.items.count == 3)
+  }
+
+  @Test
+  func sectionModelBuilderWithConditional() {
+    let showExtra = true
+
+    let section = SectionModel(id: "test") {
+      NumberItem(value: 1)
+      if showExtra {
+        NumberItem(value: 2)
+      }
+    }
+
+    #expect(section.items.count == 2)
+  }
+
+  @Test
+  func sectionModelBuilderWithLoop() {
+    let section = SectionModel(id: "test") {
+      for i in 0 ..< 5 {
+        NumberItem(value: i)
+      }
+    }
+
+    #expect(section.items.count == 5)
+  }
+
+  @Test
+  func snapshotContainsItem() {
+    let item = NumberItem(value: 42)
+    var snapshot = DiffableDataSourceSnapshot<String, NumberItem>()
+    snapshot.appendSections(["main"])
+    snapshot.appendItems([item], toSection: "main")
+
+    #expect(snapshot.contains(item))
+    #expect(!snapshot.contains(NumberItem(value: 99)))
+  }
+
+  @Test
+  func snapshotContainsSection() {
+    var snapshot = DiffableDataSourceSnapshot<String, NumberItem>()
+    snapshot.appendSections(["main", "extra"])
+
+    #expect(snapshot.contains(section: "main"))
+    #expect(snapshot.contains(section: "extra"))
+    #expect(!snapshot.contains(section: "missing"))
+  }
 }

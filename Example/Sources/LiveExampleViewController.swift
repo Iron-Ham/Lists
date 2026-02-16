@@ -13,8 +13,7 @@ final class LiveExampleViewController: UIViewController {
     case losers
   }
 
-  struct StockItem: CellViewModel, Identifiable {
-    typealias Cell = UICollectionViewListCell
+  struct StockItem: ListCellViewModel, Identifiable, ContentEquatable {
 
     let id: String // ticker symbol
     let name: String
@@ -35,23 +34,28 @@ final class LiveExampleViewController: UIViewController {
       hasher.combine(id)
     }
 
+    /// Content equality compares display values so the data source can auto-reconfigure
+    /// cells when prices change — no manual `reconfigureItems` needed.
+    func isContentEqual(to other: StockItem) -> Bool {
+      price == other.price && change == other.change
+    }
+
     @MainActor
     func configure(_ cell: UICollectionViewListCell) {
-      var content = cell.defaultContentConfiguration()
-      content.text = "\(id)  —  \(name)"
+      cell.setListContent { content in
+        content.text = "\(id)  —  \(name)"
 
-      let sign = change >= 0 ? "+" : ""
-      let changePercent = String(format: "%@%.2f%%", sign, change)
-      let priceStr = String(format: "$%.2f", price)
-      content.secondaryText = "\(priceStr)  \(changePercent)"
-      content.secondaryTextProperties.color = change >= 0 ? .systemGreen : .systemRed
-      content.secondaryTextProperties.font = .monospacedDigitSystemFont(ofSize: 14, weight: .medium)
+        let sign = change >= 0 ? "+" : ""
+        let changePercent = String(format: "%@%.2f%%", sign, change)
+        let priceStr = String(format: "$%.2f", price)
+        content.secondaryText = "\(priceStr)  \(changePercent)"
+        content.secondaryTextProperties.color = change >= 0 ? .systemGreen : .systemRed
+        content.secondaryTextProperties.font = .monospacedDigitSystemFont(ofSize: 14, weight: .medium)
 
-      let symbolName = change >= 0 ? "arrow.up.right" : "arrow.down.right"
-      content.image = UIImage(systemName: symbolName)
-      content.imageProperties.tintColor = change >= 0 ? .systemGreen : .systemRed
-
-      cell.contentConfiguration = content
+        let symbolName = change >= 0 ? "arrow.up.right" : "arrow.down.right"
+        content.image = UIImage(systemName: symbolName)
+        content.imageProperties.tintColor = change >= 0 ? .systemGreen : .systemRed
+      }
     }
   }
 
@@ -203,15 +207,13 @@ final class LiveExampleViewController: UIViewController {
     let gainers = stocks.filter(\.isGainer).sorted { $0.change > $1.change }
     let losers = stocks.filter { !$0.isGainer }.sorted { $0.change < $1.change }
 
-    // Since StockItem hashes by id only, the diff detects structural changes
-    // (cross-section moves when a stock flips gainer↔loser) but doesn't know
-    // that prices changed. Mark all items for reconfigure so visible cells
-    // get updated in-place after animations complete.
+    // StockItem conforms to ContentEquatable, so the data source automatically
+    // detects content changes (price/change) and reconfigures affected cells.
+    // No manual reconfigureItems call needed.
     var snapshot = ListDataSource<SectionID, StockItem>.Snapshot()
     snapshot.appendSections([.gainers, .losers])
     snapshot.appendItems(gainers, toSection: .gainers)
     snapshot.appendItems(losers, toSection: .losers)
-    snapshot.reconfigureItems(gainers + losers)
 
     Task {
       await dataSource.apply(snapshot, animatingDifferences: animated)

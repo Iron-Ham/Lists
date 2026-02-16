@@ -15,8 +15,7 @@ final class MixedExampleViewController: UIViewController {
     case ratings
   }
 
-  struct BannerItem: CellViewModel, Identifiable {
-    typealias Cell = UICollectionViewListCell
+  struct BannerItem: ListCellViewModel, Identifiable {
 
     let id: String
     let title: String
@@ -24,18 +23,17 @@ final class MixedExampleViewController: UIViewController {
 
     @MainActor
     func configure(_ cell: UICollectionViewListCell) {
-      var content = cell.defaultContentConfiguration()
-      content.text = title
-      content.secondaryText = subtitle
-      content.image = UIImage(systemName: "megaphone.fill")
-      content.imageProperties.tintColor = .systemOrange
-      content.textProperties.font = .preferredFont(forTextStyle: .headline)
-      cell.contentConfiguration = content
+      cell.setListContent { content in
+        content.text = title
+        content.secondaryText = subtitle
+        content.image = UIImage(systemName: "megaphone.fill")
+        content.imageProperties.tintColor = .systemOrange
+        content.textProperties.font = .preferredFont(forTextStyle: .headline)
+      }
     }
   }
 
-  struct ProductItem: CellViewModel, Identifiable {
-    typealias Cell = UICollectionViewListCell
+  struct ProductItem: ListCellViewModel, Identifiable {
 
     let id: String
     let name: String
@@ -44,18 +42,16 @@ final class MixedExampleViewController: UIViewController {
 
     @MainActor
     func configure(_ cell: UICollectionViewListCell) {
-      var content = cell.defaultContentConfiguration()
-      content.text = name
-      content.secondaryText = price
-      content.image = UIImage(systemName: icon)
-      content.imageProperties.tintColor = .systemBlue
-      cell.accessories = [.disclosureIndicator()]
-      cell.contentConfiguration = content
+      cell.setListContent(
+        text: name,
+        secondaryText: price,
+        image: UIImage(systemName: icon),
+        accessories: [.disclosureIndicator]
+      )
     }
   }
 
-  struct RatingItem: CellViewModel, Identifiable {
-    typealias Cell = UICollectionViewListCell
+  struct RatingItem: ListCellViewModel, Identifiable {
 
     let id: String
     let reviewer: String
@@ -63,14 +59,14 @@ final class MixedExampleViewController: UIViewController {
 
     @MainActor
     func configure(_ cell: UICollectionViewListCell) {
-      var content = cell.defaultContentConfiguration()
-      content.text = reviewer
-      content.secondaryText = String(repeating: "\u{2605}", count: stars)
-        + String(repeating: "\u{2606}", count: 5 - stars)
-      content.secondaryTextProperties.color = .systemYellow
-      content.image = UIImage(systemName: "person.circle.fill")
-      content.imageProperties.tintColor = .systemGray
-      cell.contentConfiguration = content
+      cell.setListContent { content in
+        content.text = reviewer
+        content.secondaryText = String(repeating: "\u{2605}", count: stars)
+          + String(repeating: "\u{2606}", count: 5 - stars)
+        content.secondaryTextProperties.color = .systemYellow
+        content.image = UIImage(systemName: "person.circle.fill")
+        content.imageProperties.tintColor = .systemGray
+      }
     }
   }
 

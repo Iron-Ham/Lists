@@ -1,3 +1,5 @@
+// MARK: - SectionModel
+
 /// A section with an identifier, items, and optional header/footer text.
 ///
 /// Use `SectionModel` with ``GroupedList`` or ``ListDataSource`` to define
@@ -25,4 +27,24 @@ public struct SectionModel<SectionID: Hashable & Sendable, Item: Hashable & Send
   /// Optional footer text displayed below the section.
   public let footer: String?
 
+}
+
+extension SectionModel where Item: CellViewModel {
+  /// Creates a section using the ``ItemsBuilder`` result builder DSL.
+  ///
+  /// ```swift
+  /// let section = SectionModel(id: "friends", header: "Friends") {
+  ///     contactA
+  ///     contactB
+  ///     contactC
+  /// }
+  /// ```
+  public init(
+    id: SectionID,
+    header: String? = nil,
+    footer: String? = nil,
+    @ItemsBuilder<Item> items: () -> [Item]
+  ) {
+    self.init(id: id, items: items(), header: header, footer: footer)
+  }
 }

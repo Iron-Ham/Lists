@@ -12,7 +12,7 @@ final class DSLExampleViewController: UIViewController {
     case category(String)
   }
 
-  struct TodoItem: CellViewModel, Identifiable {
+  struct TodoItem: ListCellViewModel, Identifiable {
 
     // MARK: Lifecycle
 
@@ -25,7 +25,6 @@ final class DSLExampleViewController: UIViewController {
 
     // MARK: Internal
 
-    typealias Cell = UICollectionViewListCell
     enum Priority: Sendable { case high, normal, low }
 
     let id: UUID
@@ -35,28 +34,28 @@ final class DSLExampleViewController: UIViewController {
 
     @MainActor
     func configure(_ cell: UICollectionViewListCell) {
-      var content = cell.defaultContentConfiguration()
-      content.text = title
-      if isCompleted {
-        content.textProperties.color = .secondaryLabel
-        content.image = UIImage(systemName: "checkmark.circle.fill")
-        content.imageProperties.tintColor = .systemGreen
-      } else {
-        switch priority {
-        case .high:
-          content.image = UIImage(systemName: "exclamationmark.circle.fill")
-          content.imageProperties.tintColor = .systemRed
+      cell.setListContent { content in
+        content.text = title
+        if isCompleted {
+          content.textProperties.color = .secondaryLabel
+          content.image = UIImage(systemName: "checkmark.circle.fill")
+          content.imageProperties.tintColor = .systemGreen
+        } else {
+          switch priority {
+          case .high:
+            content.image = UIImage(systemName: "exclamationmark.circle.fill")
+            content.imageProperties.tintColor = .systemRed
 
-        case .normal:
-          content.image = UIImage(systemName: "circle")
-          content.imageProperties.tintColor = .systemBlue
+          case .normal:
+            content.image = UIImage(systemName: "circle")
+            content.imageProperties.tintColor = .systemBlue
 
-        case .low:
-          content.image = UIImage(systemName: "circle")
-          content.imageProperties.tintColor = .systemGray
+          case .low:
+            content.image = UIImage(systemName: "circle")
+            content.imageProperties.tintColor = .systemGray
+          }
         }
       }
-      cell.contentConfiguration = content
     }
   }
 

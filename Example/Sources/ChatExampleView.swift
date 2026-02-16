@@ -26,17 +26,17 @@ struct ChatExampleView: View {
             config.topSeparatorVisibility = .hidden
             config.bottomSeparatorVisibility = .hidden
             return config
-          },
-          collectionViewHandler: { [store] cv in
-            store.collectionView = cv
-            cv.allowsSelection = false
-          },
-          scrollViewDelegate: store
+          }
         ) { [store] ref in
           if let model = store.model(for: ref.id) {
             ChatBubbleView(model: model)
           }
         }
+        .collectionViewHandler { [store] cv in
+          store.collectionView = cv
+          cv.allowsSelection = false
+        }
+        .scrollViewDelegate(store)
 
         if store.showScrollToBottom {
           Button {

@@ -11,11 +11,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **UIKit chat examples**: Two new UIKit counterparts to the existing SwiftUI chat example — `ListsChatExampleViewController` (`SimpleList` + `CellViewModel` + `UIHostingConfiguration`) and `ListKitChatExampleViewController` (raw `CollectionViewDiffableDataSource` with pure UIKit cells and manual cell reconfiguration).
 - **Shared chat input bar**: Reusable `ChatInputBar` UIKit view with keyboard layout guide support.
+- **`ListCellViewModel` protocol**: Convenience refinement of `CellViewModel` that defaults `Cell` to `UICollectionViewListCell`, eliminating the most common boilerplate `typealias`.
+- **`UICollectionViewListCell.setListContent()` helpers**: Two convenience methods (parameter-based and closure-based) that replace the repetitive 4-line content configuration pattern with a single call.
+- **SwiftUI-style view modifiers**: Chainable `.onSelect`, `.onDelete`, `.onRefresh`, `.editing`, `.contextMenu`, `.trailingSwipeActions`, `.leadingSwipeActions`, and more on `SimpleListView`, `GroupedListView`, and `OutlineListView`. Replaces the 19+ parameter initializer with an idiomatic init-then-modify pattern.
+- **Pull-to-refresh on UIKit configurations**: `onRefresh` property on `SimpleList`, `GroupedList`, and `OutlineList` with proper async task lifecycle management, bringing parity with the SwiftUI wrappers.
+- **`ContentEquatable` protocol**: Opt-in protocol for detecting content changes in identity-based view models. Automatically marks items for reconfiguration when content differs, solving the stale-UI footgun with `Identifiable` types.
+- **`OutlineItemBuilder` result builder**: Declarative trailing-closure syntax for constructing `OutlineItem` hierarchies with full support for conditionals, loops, and arrays.
+- **`SectionModel` `@ItemsBuilder` initializer**: Declarative builder-based section construction constrained to `CellViewModel` items.
+- **`SnapshotSection` header/footer support**: `header` and `footer` optional parameters in the `SnapshotBuilder` DSL, wired through to `GroupedList.setSections`.
+- **`Snapshot.contains(_:)` and `contains(section:)`**: Convenience queries using the reverse map for O(1) lookups when available.
 
 ### Changed
 
 - **AGENTS.md pre-commit documentation check**: Agents are now prompted to reflect on whether they've discovered new codebase knowledge before every commit, and to update or create `AGENTS.md` files accordingly.
 - **AGENTS.md**: Agents must now run `make docs` when modifying public API, doc comments, or DocC catalog content
+- **BREAKING: SwiftUI view initializers simplified**: `SimpleListView`, `GroupedListView`, and `OutlineListView` CellViewModel-based initializers now accept only layout/structural parameters. Behavioral properties (`onSelect`, `onDelete`, `onRefresh`, `editing`, etc.) must be set via the new chainable modifiers. Inline content initializers retain item-typed behavioral params (e.g., `onSelect`, `onDelete`) since they perform `Data → Item` wrapping.
+- **Refresh control logic consolidated**: Extracted `RefreshControlManager` to replace triplicated refresh control code across `SimpleList`, `GroupedList`, and `OutlineList`.
+- **Example app updated**: All UIKit examples use `ListCellViewModel` and `setListContent()`. `OutlineExampleViewController` uses builder DSL. `SwiftUIWrappersExampleView` demonstrates modifier-based configuration. `LiveExampleViewController` uses `ContentEquatable` for automatic reconfiguration.
+
+### Fixed
+
+- **Cell reuse accessory leak**: `setListContent()` now unconditionally assigns accessories, preventing stale accessories from persisting across cell reuse.
+- **`ListAccessory.progress` crash**: Replaced `translatesAutoresizingMaskIntoConstraints = false` (which violates `UICellAccessory.customView` requirements) with `reservedLayoutWidth: .custom(60)`.
 
 ## [0.4.0] - 2026-02-15
 

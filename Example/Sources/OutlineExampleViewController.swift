@@ -7,7 +7,7 @@ final class OutlineExampleViewController: UIViewController {
 
   // MARK: Internal
 
-  struct FileItem: CellViewModel, Identifiable {
+  struct FileItem: ListCellViewModel, Identifiable {
 
     // MARK: Lifecycle
 
@@ -19,42 +19,39 @@ final class OutlineExampleViewController: UIViewController {
 
     // MARK: Internal
 
-    typealias Cell = UICollectionViewListCell
-
     let id: String
     let name: String
     let isFolder: Bool
 
     @MainActor
     func configure(_ cell: UICollectionViewListCell) {
-      var content = cell.defaultContentConfiguration()
-      content.text = name
+      cell.setListContent { content in
+        content.text = name
 
-      if isFolder {
-        content.image = UIImage(systemName: "folder.fill")
-        content.imageProperties.tintColor = .systemBlue
-      } else {
-        let ext = (name as NSString).pathExtension.lowercased()
-        switch ext {
-        case "swift":
-          content.image = UIImage(systemName: "swift")
-          content.imageProperties.tintColor = .systemOrange
+        if isFolder {
+          content.image = UIImage(systemName: "folder.fill")
+          content.imageProperties.tintColor = .systemBlue
+        } else {
+          let ext = (name as NSString).pathExtension.lowercased()
+          switch ext {
+          case "swift":
+            content.image = UIImage(systemName: "swift")
+            content.imageProperties.tintColor = .systemOrange
 
-        case "json", "plist":
-          content.image = UIImage(systemName: "doc.text")
-          content.imageProperties.tintColor = .systemGreen
+          case "json", "plist":
+            content.image = UIImage(systemName: "doc.text")
+            content.imageProperties.tintColor = .systemGreen
 
-        case "md":
-          content.image = UIImage(systemName: "doc.richtext")
-          content.imageProperties.tintColor = .systemPurple
+          case "md":
+            content.image = UIImage(systemName: "doc.richtext")
+            content.imageProperties.tintColor = .systemPurple
 
-        default:
-          content.image = UIImage(systemName: "doc")
-          content.imageProperties.tintColor = .secondaryLabel
+          default:
+            content.image = UIImage(systemName: "doc")
+            content.imageProperties.tintColor = .secondaryLabel
+          }
         }
       }
-
-      cell.contentConfiguration = content
     }
   }
 
@@ -103,61 +100,36 @@ final class OutlineExampleViewController: UIViewController {
   }
 
   private func loadData() {
+    // Uses the OutlineItemBuilder DSL — code indentation mirrors the tree hierarchy.
     fileTree = [
-      OutlineItem(
-        item: FileItem(name: "Sources", isFolder: true),
-        children: [
-          OutlineItem(
-            item: FileItem(name: "ListKit", isFolder: true),
-            children: [
-              OutlineItem(
-                item: FileItem(name: "Algorithm", isFolder: true),
-                children: [
-                  OutlineItem(item: FileItem(name: "HeckelDiff.swift")),
-                  OutlineItem(item: FileItem(name: "SectionedDiff.swift")),
-                  OutlineItem(item: FileItem(name: "StagedChangeset.swift")),
-                ],
-                isExpanded: true
-              ),
-              OutlineItem(
-                item: FileItem(name: "DataSource", isFolder: true),
-                children: [
-                  OutlineItem(item: FileItem(name: "CollectionViewDiffableDataSource.swift"))
-                ],
-                isExpanded: true
-              ),
-              OutlineItem(
-                item: FileItem(name: "Snapshot", isFolder: true),
-                children: [
-                  OutlineItem(item: FileItem(name: "DiffableDataSourceSnapshot.swift")),
-                  OutlineItem(item: FileItem(name: "DiffableDataSourceSectionSnapshot.swift")),
-                ]
-              ),
-            ],
-            isExpanded: true
-          ),
-          OutlineItem(
-            item: FileItem(name: "Lists", isFolder: true),
-            children: [
-              OutlineItem(item: FileItem(name: "CellViewModel.swift")),
-              OutlineItem(item: FileItem(name: "ListDataSource.swift")),
-              OutlineItem(item: FileItem(name: "SimpleList.swift")),
-              OutlineItem(item: FileItem(name: "GroupedList.swift")),
-              OutlineItem(item: FileItem(name: "OutlineList.swift")),
-            ],
-            isExpanded: true
-          ),
-        ],
-        isExpanded: true
-      ),
-      OutlineItem(
-        item: FileItem(name: "Tests", isFolder: true),
-        children: [
-          OutlineItem(item: FileItem(name: "HeckelDiffTests.swift")),
-          OutlineItem(item: FileItem(name: "SnapshotTests.swift")),
-          OutlineItem(item: FileItem(name: "PerformanceTests.swift")),
-        ]
-      ),
+      OutlineItem(item: FileItem(name: "Sources", isFolder: true), isExpanded: true) {
+        OutlineItem(item: FileItem(name: "ListKit", isFolder: true), isExpanded: true) {
+          OutlineItem(item: FileItem(name: "Algorithm", isFolder: true), isExpanded: true) {
+            OutlineItem(item: FileItem(name: "HeckelDiff.swift"))
+            OutlineItem(item: FileItem(name: "SectionedDiff.swift"))
+            OutlineItem(item: FileItem(name: "StagedChangeset.swift"))
+          }
+          OutlineItem(item: FileItem(name: "DataSource", isFolder: true), isExpanded: true) {
+            OutlineItem(item: FileItem(name: "CollectionViewDiffableDataSource.swift"))
+          }
+          OutlineItem(item: FileItem(name: "Snapshot", isFolder: true)) {
+            OutlineItem(item: FileItem(name: "DiffableDataSourceSnapshot.swift"))
+            OutlineItem(item: FileItem(name: "DiffableDataSourceSectionSnapshot.swift"))
+          }
+        }
+        OutlineItem(item: FileItem(name: "Lists", isFolder: true), isExpanded: true) {
+          OutlineItem(item: FileItem(name: "CellViewModel.swift"))
+          OutlineItem(item: FileItem(name: "ListDataSource.swift"))
+          OutlineItem(item: FileItem(name: "SimpleList.swift"))
+          OutlineItem(item: FileItem(name: "GroupedList.swift"))
+          OutlineItem(item: FileItem(name: "OutlineList.swift"))
+        }
+      },
+      OutlineItem(item: FileItem(name: "Tests", isFolder: true)) {
+        OutlineItem(item: FileItem(name: "HeckelDiffTests.swift"))
+        OutlineItem(item: FileItem(name: "SnapshotTests.swift"))
+        OutlineItem(item: FileItem(name: "PerformanceTests.swift"))
+      },
       OutlineItem(item: FileItem(name: "Package.swift")),
       OutlineItem(item: FileItem(name: "README.md")),
     ]

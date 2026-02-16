@@ -71,6 +71,7 @@ public final class OutlineList<Item: CellViewModel>: NSObject, UICollectionViewD
 
   deinit {
     applyTask?.cancel()
+    refreshManager.cancel()
   }
 
   /// Creates an outline list with the specified list appearance.
@@ -108,6 +109,7 @@ public final class OutlineList<Item: CellViewModel>: NSObject, UICollectionViewD
     dataSource = ListDataSource(collectionView: collectionView)
     super.init()
     collectionView.delegate = self
+    refreshManager.attach(to: collectionView)
 
     bridge.setDataSource(dataSource)
     // trailingSwipeActionsProvider takes precedence; onDelete is the fallback.
@@ -159,6 +161,19 @@ public final class OutlineList<Item: CellViewModel>: NSObject, UICollectionViewD
   /// Use this to track scroll position, detect user-initiated drags, or respond to deceleration
   /// events without replacing the collection view's delegate (which the list manages internally).
   public weak var scrollViewDelegate: UIScrollViewDelegate?
+
+  /// An async closure invoked on pull-to-refresh. The refresh control is dismissed
+  /// automatically when the closure returns.
+  ///
+  /// ```swift
+  /// list.onRefresh = {
+  ///     let items = try? await api.fetchTree()
+  ///     await list.setItems(items ?? [])
+  /// }
+  /// ```
+  public var onRefresh: (@MainActor () async -> Void)? {
+    didSet { refreshManager.onRefresh = onRefresh }
+  }
 
   /// Per-item separator customization handler.
   ///
@@ -239,6 +254,24 @@ public final class OutlineList<Item: CellViewModel>: NSObject, UICollectionViewD
     } onCancel: {
       task.cancel()
     }
+  }
+
+  /// Replaces the outline's tree using the ``OutlineItemBuilder`` result builder DSL.
+  ///
+  /// ```swift
+  /// await list.setItems {
+  ///     OutlineItem(item: folder, isExpanded: true) {
+  ///         OutlineItem(item: fileA)
+  ///         OutlineItem(item: fileB)
+  ///     }
+  ///     OutlineItem(item: standalone)
+  /// }
+  /// ```
+  public func setItems(
+    animatingDifferences: Bool = true,
+    @OutlineItemBuilder<Item> content: () -> [OutlineItem<Item>]
+  ) async {
+    await setItems(content(), animatingDifferences: animatingDifferences)
   }
 
   /// Returns a copy of the current snapshot.
@@ -334,6 +367,7 @@ public final class OutlineList<Item: CellViewModel>: NSObject, UICollectionViewD
 
   private let dataSource: ListDataSource<Int, Item>
   private let bridge: ListConfigurationBridge<Int, Item>
+  private let refreshManager = RefreshControlManager()
   private var applyTask: Task<Void, Never>?
 
   private func appendItems(

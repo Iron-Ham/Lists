@@ -28,6 +28,7 @@ public final class GroupedList<SectionID: Hashable & Sendable, Item: CellViewMod
 
   deinit {
     applyTask?.cancel()
+    refreshManager.cancel()
   }
 
   /// Creates a grouped list with the specified list appearance.
@@ -71,6 +72,7 @@ public final class GroupedList<SectionID: Hashable & Sendable, Item: CellViewMod
     dataSource = ListDataSource(collectionView: collectionView)
     super.init()
     collectionView.delegate = self
+    refreshManager.attach(to: collectionView)
     // Register supplementary views only when at least one mode is .supplementary.
     // Both header and footer registrations are created together; the layout only
     // requests the kinds matching its configuration, so unused registrations are inert.
@@ -196,6 +198,19 @@ public final class GroupedList<SectionID: Hashable & Sendable, Item: CellViewMod
     set { collectionView.isEditing = newValue }
   }
 
+  /// An async closure invoked on pull-to-refresh. The refresh control is dismissed
+  /// automatically when the closure returns.
+  ///
+  /// ```swift
+  /// list.onRefresh = {
+  ///     let sections = try? await api.fetchSections()
+  ///     await list.setSections(sections ?? [])
+  /// }
+  /// ```
+  public var onRefresh: (@MainActor () async -> Void)? {
+    didSet { refreshManager.onRefresh = onRefresh }
+  }
+
   /// Called when the user reorders an item via drag-and-drop.
   /// The list updates its internal snapshot automatically; use this to persist the new order.
   /// Setting this enables the reorder interaction on the collection view.
@@ -241,19 +256,17 @@ public final class GroupedList<SectionID: Hashable & Sendable, Item: CellViewMod
 
   /// Replaces all sections using the ``SnapshotBuilder`` result builder DSL.
   ///
-  /// - Note: ``SnapshotSection`` carries only an identifier and items — it does not support
-  ///   header or footer text. To display section headers and footers, either use the
-  ///   array-based ``setSections(_:animatingDifferences:)`` with ``SectionModel`` values
-  ///   that include `header`/`footer`, or set ``headerContentProvider`` /
-  ///   ``footerContentProvider`` for fully custom supplementary content.
+  /// ``SnapshotSection`` supports optional `header` and `footer` text that maps directly
+  /// to ``SectionModel`` headers/footers. For fully custom supplementary content, set
+  /// ``headerContentProvider`` / ``footerContentProvider`` instead.
   ///
   /// ```swift
   /// await list.setSections {
-  ///     SnapshotSection("favorites") {
+  ///     SnapshotSection("favorites", header: "Favorites") {
   ///         favoriteItem1
   ///         favoriteItem2
   ///     }
-  ///     SnapshotSection("recent") {
+  ///     SnapshotSection("recent", header: "Recent") {
   ///         recentItem1
   ///     }
   /// }
@@ -263,7 +276,7 @@ public final class GroupedList<SectionID: Hashable & Sendable, Item: CellViewMod
     @SnapshotBuilder<SectionID, Item> content: () -> [SnapshotSection<SectionID, Item>]
   ) async {
     let sections = content().map { section in
-      SectionModel(id: section.id, items: section.items)
+      SectionModel(id: section.id, items: section.items, header: section.header, footer: section.footer)
     }
     await setSections(sections, animatingDifferences: animatingDifferences)
   }
@@ -361,6 +374,7 @@ public final class GroupedList<SectionID: Hashable & Sendable, Item: CellViewMod
 
   private let dataSource: ListDataSource<SectionID, Item>
   private let bridge: ListConfigurationBridge<SectionID, Item>
+  private let refreshManager = RefreshControlManager()
   private var sectionHeaders = [SectionID: String]()
   private var sectionFooters = [SectionID: String]()
   private var applyTask: Task<Void, Never>?

@@ -12,6 +12,16 @@ public struct GroupedListView<SectionID: Hashable & Sendable, Item: CellViewMode
 
   // MARK: Lifecycle
 
+  /// Creates a grouped list view with layout configuration.
+  ///
+  /// Use chained modifiers for behavioral configuration:
+  /// ```swift
+  /// GroupedListView(sections: sections, appearance: .insetGrouped)
+  ///     .onSelect { item in navigateTo(item) }
+  ///     .onDelete { item in remove(item) }
+  ///     .headerContentProvider { sectionID in customHeader(for: sectionID) }
+  ///     .onRefresh { await reload() }
+  /// ```
   public init(
     sections: [SectionModel<SectionID, Item>],
     appearance: UICollectionLayoutListConfiguration.Appearance = .insetGrouped,
@@ -20,23 +30,7 @@ public struct GroupedListView<SectionID: Hashable & Sendable, Item: CellViewMode
     footerMode: UICollectionLayoutListConfiguration.FooterMode = .supplementary,
     separatorColor: UIColor? = nil,
     backgroundColor: UIColor? = nil,
-    headerTopPadding: CGFloat? = nil,
-    allowsMultipleSelection: Bool = false,
-    allowsSelectionDuringEditing: Bool = false,
-    allowsMultipleSelectionDuringEditing: Bool = false,
-    isEditing: Bool = false,
-    onSelect: (@MainActor (Item) -> Void)? = nil,
-    onDeselect: (@MainActor (Item) -> Void)? = nil,
-    onDelete: (@MainActor (Item) -> Void)? = nil,
-    trailingSwipeActionsProvider: (@MainActor (Item) -> UISwipeActionsConfiguration?)? = nil,
-    leadingSwipeActionsProvider: (@MainActor (Item) -> UISwipeActionsConfiguration?)? = nil,
-    contextMenuProvider: (@MainActor (Item) -> UIContextMenuConfiguration?)? = nil,
-    separatorHandler: (@MainActor (Item, UIListSeparatorConfiguration) -> UIListSeparatorConfiguration)? = nil,
-    headerContentProvider: (@MainActor (SectionID) -> UIContentConfiguration?)? = nil,
-    footerContentProvider: (@MainActor (SectionID) -> UIContentConfiguration?)? = nil,
-    onRefresh: (@MainActor () async -> Void)? = nil,
-    collectionViewHandler: (@MainActor (UICollectionView) -> Void)? = nil,
-    scrollViewDelegate: UIScrollViewDelegate? = nil
+    headerTopPadding: CGFloat? = nil
   ) {
     self.sections = sections
     self.appearance = appearance
@@ -46,22 +40,6 @@ public struct GroupedListView<SectionID: Hashable & Sendable, Item: CellViewMode
     self.separatorColor = separatorColor
     self.backgroundColor = backgroundColor
     self.headerTopPadding = headerTopPadding
-    self.allowsMultipleSelection = allowsMultipleSelection
-    self.allowsSelectionDuringEditing = allowsSelectionDuringEditing
-    self.allowsMultipleSelectionDuringEditing = allowsMultipleSelectionDuringEditing
-    self.isEditing = isEditing
-    self.onSelect = onSelect
-    self.onDeselect = onDeselect
-    self.onDelete = onDelete
-    self.trailingSwipeActionsProvider = trailingSwipeActionsProvider
-    self.leadingSwipeActionsProvider = leadingSwipeActionsProvider
-    self.contextMenuProvider = contextMenuProvider
-    self.separatorHandler = separatorHandler
-    self.headerContentProvider = headerContentProvider
-    self.footerContentProvider = footerContentProvider
-    self.onRefresh = onRefresh
-    self.collectionViewHandler = collectionViewHandler
-    self.scrollViewDelegate = scrollViewDelegate
   }
 
   // MARK: Public
@@ -148,13 +126,13 @@ public struct GroupedListView<SectionID: Hashable & Sendable, Item: CellViewMode
   ///   changes to this value will not update the existing collection view layout.
   public let headerTopPadding: CGFloat?
   /// Whether the list allows multiple simultaneous selections.
-  public let allowsMultipleSelection: Bool
+  public var allowsMultipleSelection = false
   /// Whether selection is allowed during editing mode.
-  public let allowsSelectionDuringEditing: Bool
+  public var allowsSelectionDuringEditing = false
   /// Whether multiple selection is allowed during editing mode.
-  public let allowsMultipleSelectionDuringEditing: Bool
+  public var allowsMultipleSelectionDuringEditing = false
   /// Whether the list is in editing mode.
-  public let isEditing: Bool
+  public var isEditing = false
   /// Called when the user taps an item.
   public var onSelect: (@MainActor (Item) -> Void)?
   /// Called when the user deselects an item (relevant when `allowsMultipleSelection` is enabled).
@@ -308,10 +286,6 @@ extension GroupedListView {
     separatorColor: UIColor? = nil,
     backgroundColor: UIColor? = nil,
     headerTopPadding: CGFloat? = nil,
-    allowsMultipleSelection: Bool = false,
-    allowsSelectionDuringEditing: Bool = false,
-    allowsMultipleSelectionDuringEditing: Bool = false,
-    isEditing: Bool = false,
     accessories: [ListAccessory] = [],
     onSelect: (@MainActor (Data) -> Void)? = nil,
     onDeselect: (@MainActor (Data) -> Void)? = nil,
@@ -320,11 +294,6 @@ extension GroupedListView {
     leadingSwipeActionsProvider: (@MainActor (Data) -> UISwipeActionsConfiguration?)? = nil,
     contextMenuProvider: (@MainActor (Data) -> UIContextMenuConfiguration?)? = nil,
     separatorHandler: (@MainActor (Data, UIListSeparatorConfiguration) -> UIListSeparatorConfiguration)? = nil,
-    headerContentProvider: (@MainActor (SectionID) -> UIContentConfiguration?)? = nil,
-    footerContentProvider: (@MainActor (SectionID) -> UIContentConfiguration?)? = nil,
-    onRefresh: (@MainActor () async -> Void)? = nil,
-    collectionViewHandler: (@MainActor (UICollectionView) -> Void)? = nil,
-    scrollViewDelegate: UIScrollViewDelegate? = nil,
     @ViewBuilder content: @escaping @MainActor (Data) -> some View
   ) where Item == InlineCellViewModel<Data> {
     let mapped: [SectionModel<SectionID, InlineCellViewModel<Data>>] = sections.map { section in
@@ -343,15 +312,6 @@ extension GroupedListView {
     self.separatorColor = separatorColor
     self.backgroundColor = backgroundColor
     self.headerTopPadding = headerTopPadding
-    self.allowsMultipleSelection = allowsMultipleSelection
-    self.allowsSelectionDuringEditing = allowsSelectionDuringEditing
-    self.allowsMultipleSelectionDuringEditing = allowsMultipleSelectionDuringEditing
-    self.isEditing = isEditing
-    self.headerContentProvider = headerContentProvider
-    self.footerContentProvider = footerContentProvider
-    self.onRefresh = onRefresh
-    self.collectionViewHandler = collectionViewHandler
-    self.scrollViewDelegate = scrollViewDelegate
 
     if let onSelect {
       self.onSelect = { item in onSelect(item.data) }
