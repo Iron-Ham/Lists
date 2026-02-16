@@ -64,3 +64,4 @@ Do not merge changes that regress benchmark numbers without explicit approval.
 - `CollectionViewDiffableDataSource` must remain API-compatible with Apple's `UICollectionViewDiffableDataSource`
 - Run `make test-listkit` to verify correctness
 - Run `make benchmark` to verify performance (see Performance section above)
+- Run `make docs` if you changed any public API, doc comments (`///`), or files under `ListKit.docc/` — commit the updated `docs/` output

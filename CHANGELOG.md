@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **AGENTS.md pre-commit documentation check**: Agents are now prompted to reflect on whether they've discovered new codebase knowledge before every commit, and to update or create `AGENTS.md` files accordingly.
+- **AGENTS.md**: Agents must now run `make docs` when modifying public API, doc comments, or DocC catalog content
 
 ## [0.4.0] - 2026-02-15
 

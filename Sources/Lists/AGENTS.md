@@ -96,3 +96,4 @@ SwiftUI wrappers use `UIViewRepresentable`. The `SwiftUICellViewModel` protocol 
 - SwiftUI wrappers must call `updateUIView` correctly (avoid unnecessary reloads)
 - All configurations are `@MainActor` — don't break actor isolation
 - Run `make test-lists` to verify changes
+- Run `make docs` if you changed any public API, doc comments (`///`), or files under `Lists.docc/` — commit the updated `docs/` output
