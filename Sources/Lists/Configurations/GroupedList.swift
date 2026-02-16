@@ -26,6 +26,10 @@ public final class GroupedList<SectionID: Hashable & Sendable, Item: CellViewMod
 
   // MARK: Lifecycle
 
+  deinit {
+    applyTask?.cancel()
+  }
+
   /// Creates a grouped list with the specified list appearance.
   ///
   /// - Parameters:

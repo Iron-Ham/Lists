@@ -24,6 +24,10 @@ public final class SimpleList<Item: CellViewModel>: NSObject, UICollectionViewDe
 
   // MARK: Lifecycle
 
+  deinit {
+    applyTask?.cancel()
+  }
+
   /// Creates a simple list with the specified list appearance.
   ///
   /// - Parameters:

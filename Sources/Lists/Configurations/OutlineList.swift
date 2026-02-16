@@ -69,6 +69,10 @@ public final class OutlineList<Item: CellViewModel>: NSObject, UICollectionViewD
 
   // MARK: Lifecycle
 
+  deinit {
+    applyTask?.cancel()
+  }
+
   /// Creates an outline list with the specified list appearance.
   ///
   /// - Parameters:
@@ -197,6 +201,10 @@ public final class OutlineList<Item: CellViewModel>: NSObject, UICollectionViewD
 
   /// Replaces the outline's tree, computing and animating the diff.
   ///
+  /// Uses `apply(_:to:animatingDifferences:)` with a section snapshot so UIKit handles
+  /// hierarchy natively — expand/collapse animations and optimized subtree diffing come
+  /// for free instead of forcing a full flat diff on every update.
+  ///
   /// Cancels any previously queued apply so only the most recent snapshot is applied,
   /// and supports cooperative cancellation from the calling task.
   public func setItems(_ items: [OutlineItem<Item>], animatingDifferences: Bool = true) async {
@@ -205,25 +213,18 @@ public final class OutlineList<Item: CellViewModel>: NSObject, UICollectionViewD
     let task = Task { [weak self] in
       _ = await previousTask?.value
       guard !Task.isCancelled, let self else { return }
-      var sectionSnapshot = DiffableDataSourceSectionSnapshot<Item>()
-      appendItems(items, to: nil, in: &sectionSnapshot)
 
-      // Build the full snapshot in one pass: ensure section exists, then replace items
-      // with the visible items from the section snapshot. This avoids two sequential applies
-      // and ensures everything goes through the serialized apply path.
+      // Ensure the section exists before applying the section snapshot.
       var mainSnapshot = dataSource.snapshot()
       if mainSnapshot.numberOfSections == 0 {
         mainSnapshot.appendSections([0])
+        await dataSource.apply(mainSnapshot, animatingDifferences: false)
+        guard !Task.isCancelled else { return }
       }
-      let oldItems = mainSnapshot.itemIdentifiers(inSection: 0)
-      if !oldItems.isEmpty {
-        mainSnapshot.deleteItems(oldItems)
-      }
-      let visibleItems = sectionSnapshot.visibleItems
-      if !visibleItems.isEmpty {
-        mainSnapshot.appendItems(visibleItems, toSection: 0)
-      }
-      await dataSource.apply(mainSnapshot, animatingDifferences: animatingDifferences)
+
+      var sectionSnapshot = DiffableDataSourceSectionSnapshot<Item>()
+      appendItems(items, to: nil, in: &sectionSnapshot)
+      await dataSource.apply(sectionSnapshot, to: 0, animatingDifferences: animatingDifferences)
     }
     applyTask = task
     await withTaskCancellationHandler {

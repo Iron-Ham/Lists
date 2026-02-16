@@ -46,7 +46,8 @@ struct SwiftUIWrappersExampleView: View {
 // MARK: - SimpleDemoView
 
 /// Uses the inline content closure API — no separate struct needed.
-/// Also demonstrates `onDelete`, `showsSeparators`, and context menus (long-press preview).
+/// Also demonstrates separator customization, pull-to-refresh, swipe actions,
+/// and context menus (long-press preview).
 private struct SimpleDemoView: View {
 
   // MARK: Internal
@@ -54,12 +55,35 @@ private struct SimpleDemoView: View {
   var body: some View {
     SimpleListView(
       items: fruits,
-      showsSeparators: false,
+      separatorColor: .systemBlue,
       onSelect: { fruit in
         print("Selected: \(fruit.name)")
       },
-      onDelete: { fruit in
-        fruits.removeAll { $0.id == fruit.id }
+      trailingSwipeActionsProvider: { fruit in
+        let pin = UIContextualAction(style: .normal, title: "Pin") { _, _, completion in
+          print("Pinned \(fruit.name)")
+          completion(true)
+        }
+        pin.image = UIImage(systemName: "pin.fill")
+        pin.backgroundColor = .systemOrange
+
+        let archive = UIContextualAction(style: .normal, title: "Archive") { _, _, completion in
+          print("Archived \(fruit.name)")
+          completion(true)
+        }
+        archive.image = UIImage(systemName: "archivebox.fill")
+        archive.backgroundColor = .systemPurple
+
+        return UISwipeActionsConfiguration(actions: [pin, archive])
+      },
+      leadingSwipeActionsProvider: { fruit in
+        let favorite = UIContextualAction(style: .normal, title: "Favorite") { _, _, completion in
+          print("Favorited \(fruit.name)")
+          completion(true)
+        }
+        favorite.image = UIImage(systemName: "heart.fill")
+        favorite.backgroundColor = .systemPink
+        return UISwipeActionsConfiguration(actions: [favorite])
       },
       contextMenuProvider: { fruit in
         UIContextMenuConfiguration(actionProvider: { _ in
@@ -71,6 +95,17 @@ private struct SimpleDemoView: View {
           }
           return UIMenu(children: [favorite, share])
         })
+      },
+      separatorHandler: { fruit, config in
+        var config = config
+        if fruit == fruits.first {
+          config.topSeparatorInsets = .init(top: 0, leading: 60, bottom: 0, trailing: 0)
+        }
+        return config
+      },
+      onRefresh: {
+        try? await Task.sleep(for: .seconds(1))
+        fruits.shuffle()
       }
     ) { fruit in
       HStack {
@@ -79,11 +114,6 @@ private struct SimpleDemoView: View {
         Text(fruit.name)
       }
       .padding(.vertical, 4)
-    }
-    .overlay(alignment: .bottom) {
-      Button("Shuffle") { fruits.shuffle() }
-        .buttonStyle(.borderedProminent)
-        .padding()
     }
   }
 
@@ -131,6 +161,24 @@ private struct GroupedDemoView: View {
         languages.removeAll { $0.id == item.id }
         frameworks.removeAll { $0.id == item.id }
       },
+      leadingSwipeActionsProvider: { item in
+        let flag = UIContextualAction(style: .normal, title: "Flag") { _, _, completion in
+          print("Flagged \(item.name)")
+          completion(true)
+        }
+        flag.image = UIImage(systemName: "flag.fill")
+        flag.backgroundColor = .systemIndigo
+        return UISwipeActionsConfiguration(actions: [flag])
+      },
+      separatorHandler: { item, config in
+        // Hide separator for the last item in each section
+        if item == languages.last || item == frameworks.last {
+          var config = config
+          config.bottomSeparatorVisibility = .hidden
+          return config
+        }
+        return config
+      },
       onRefresh: {
         // Simulate network fetch
         try? await Task.sleep(for: .seconds(1))
@@ -175,7 +223,7 @@ private struct OutlineDemoView: View {
   var body: some View {
     OutlineListView(
       items: items,
-      showsSeparators: false,
+      separatorColor: .separator,
       onSelect: { category in
         print("Selected: \(category.name)")
       },
@@ -278,6 +326,15 @@ private struct LanguageItem: SwiftUICellViewModel, Identifiable {
 
   var accessories: [ListAccessory] {
     [
+      .popUpMenu(UIMenu(title: "", children: [
+        UIAction(title: "Copy", image: UIImage(systemName: "doc.on.doc")) { _ in
+          UIPasteboard.general.string = name
+        },
+        UIAction(title: "Share", image: UIImage(systemName: "square.and.arrow.up")) { _ in
+          print("Share \(name)")
+        },
+      ])),
+      .multiselect,
       .label(text: String(year)),
       .detail(actionHandler: { print("Detail tapped for \(name)") }),
       .disclosureIndicator,
