@@ -70,6 +70,16 @@ Any change that could affect performance **must**:
 
 Do not merge changes that regress benchmark numbers without explicit approval. See [`Sources/ListKit/AGENTS.md`](Sources/ListKit/AGENTS.md) for current baselines and details.
 
+## Changelog
+
+**ALL pull requests MUST include a changelog entry.** The project maintains a [`CHANGELOG.md`](CHANGELOG.md) following the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format.
+
+When submitting a PR:
+1. Add an entry under the `## [Unreleased]` section at the top of `CHANGELOG.md` (create the section if it doesn't exist)
+2. Use the appropriate subsection: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, or `Security`
+3. Write a concise, user-facing description of the change
+4. PRs without a changelog entry should not be merged
+
 ## Key Conventions
 
 - **`CellViewModel` protocol** is the core abstraction in Lists. Requires `Hashable` + `Sendable`. Optionally conform to `Identifiable` to get free `Hashable`/`Equatable` from `id`.
