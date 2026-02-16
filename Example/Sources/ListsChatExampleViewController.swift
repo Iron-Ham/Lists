@@ -67,6 +67,13 @@ final class ListsChatExampleViewController: UIViewController {
     )
     list.scrollViewDelegate = store
 
+    list.separatorHandler = { _, config in
+      var config = config
+      config.topSeparatorVisibility = .hidden
+      config.bottomSeparatorVisibility = .hidden
+      return config
+    }
+
     list.contextMenuProvider = { item in
       UIContextMenuConfiguration(actionProvider: { _ in
         UIMenu(children: [

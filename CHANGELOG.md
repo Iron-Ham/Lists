@@ -21,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`SnapshotSection` header/footer support**: `header` and `footer` optional parameters in the `SnapshotBuilder` DSL, wired through to `GroupedList.setSections`.
 - **`Snapshot.contains(_:)` and `contains(section:)`**: Convenience queries using the reverse map for O(1) lookups when available.
 
+### Fixed
+
+- **Chat example separators**: Added explicit `separatorHandler` to `ListsChatExampleViewController` to ensure separators are fully hidden, preventing `itemSeparatorHandler` from overriding `showsSeparators: false`.
+
 ### Changed
 
 - **AGENTS.md pre-commit documentation check**: Agents are now prompted to reflect on whether they've discovered new codebase knowledge before every commit, and to update or create `AGENTS.md` files accordingly.
