@@ -264,4 +264,173 @@ struct SnapshotTests {
     #expect(snapshot.numberOfSections == 1)
     #expect(snapshot.numberOfItems == 1)
   }
+
+  @Test
+  func snapshotEquality() {
+    var a = DiffableDataSourceSnapshot<String, Int>()
+    a.appendSections(["A", "B"])
+    a.appendItems([1, 2], toSection: "A")
+    a.appendItems([3], toSection: "B")
+
+    var b = DiffableDataSourceSnapshot<String, Int>()
+    b.appendSections(["A", "B"])
+    b.appendItems([1, 2], toSection: "A")
+    b.appendItems([3], toSection: "B")
+
+    #expect(a == b)
+  }
+
+  @Test
+  func snapshotInequalityDifferentItems() {
+    var a = DiffableDataSourceSnapshot<String, Int>()
+    a.appendSections(["A"])
+    a.appendItems([1, 2], toSection: "A")
+
+    var b = DiffableDataSourceSnapshot<String, Int>()
+    b.appendSections(["A"])
+    b.appendItems([1, 3], toSection: "A")
+
+    #expect(a != b)
+  }
+
+  @Test
+  func snapshotInequalityDifferentSections() {
+    var a = DiffableDataSourceSnapshot<String, Int>()
+    a.appendSections(["A"])
+    a.appendItems([1], toSection: "A")
+
+    var b = DiffableDataSourceSnapshot<String, Int>()
+    b.appendSections(["B"])
+    b.appendItems([1], toSection: "B")
+
+    #expect(a != b)
+  }
+
+  @Test
+  func snapshotInequalityDifferentSectionOrder() {
+    var a = DiffableDataSourceSnapshot<String, Int>()
+    a.appendSections(["A", "B"])
+
+    var b = DiffableDataSourceSnapshot<String, Int>()
+    b.appendSections(["B", "A"])
+
+    #expect(a != b)
+  }
+
+  @Test
+  func snapshotEqualityIgnoresReloadMarkers() {
+    var a = DiffableDataSourceSnapshot<String, Int>()
+    a.appendSections(["A"])
+    a.appendItems([1, 2], toSection: "A")
+
+    var b = a
+    b.reloadItems([1])
+    b.reloadSections(["A"])
+
+    // Reload markers are transient — structural equality should still hold
+    #expect(a == b)
+  }
+
+  @Test
+  func emptySnapshotEquality() {
+    let a = DiffableDataSourceSnapshot<String, Int>()
+    let b = DiffableDataSourceSnapshot<String, Int>()
+    #expect(a == b)
+  }
+
+  @Test
+  func convenienceInitFromSections() {
+    let snapshot = DiffableDataSourceSnapshot(sections: [
+      ("A", [1, 2]),
+      ("B", [3]),
+    ])
+    #expect(snapshot.numberOfSections == 2)
+    #expect(snapshot.sectionIdentifiers == ["A", "B"])
+    #expect(snapshot.itemIdentifiers(inSection: "A") == [1, 2])
+    #expect(snapshot.itemIdentifiers(inSection: "B") == [3])
+    #expect(snapshot.numberOfItems == 3)
+  }
+
+  @Test
+  func convenienceInitEmpty() {
+    let snapshot = DiffableDataSourceSnapshot<String, Int>(sections: [])
+    #expect(snapshot.isEmpty)
+  }
+
+  @Test
+  func convenienceInitMatchesManualBuild() {
+    var manual = DiffableDataSourceSnapshot<String, Int>()
+    manual.appendSections(["X", "Y"])
+    manual.appendItems([10, 20], toSection: "X")
+    manual.appendItems([30, 40, 50], toSection: "Y")
+
+    let convenience = DiffableDataSourceSnapshot(sections: [
+      ("X", [10, 20]),
+      ("Y", [30, 40, 50]),
+    ])
+
+    #expect(manual == convenience)
+  }
+
+  @Test
+  func sectionIdentifierAtIndex() {
+    var snapshot = DiffableDataSourceSnapshot<String, Int>()
+    snapshot.appendSections(["A", "B", "C"])
+
+    #expect(snapshot.sectionIdentifier(at: 0) == "A")
+    #expect(snapshot.sectionIdentifier(at: 1) == "B")
+    #expect(snapshot.sectionIdentifier(at: 2) == "C")
+    #expect(snapshot.sectionIdentifier(at: 3) == nil)
+    #expect(snapshot.sectionIdentifier(at: -1) == nil)
+  }
+
+  @Test
+  func replaceItemsInSection() {
+    var snapshot = DiffableDataSourceSnapshot<String, Int>()
+    snapshot.appendSections(["A", "B"])
+    snapshot.appendItems([1, 2, 3], toSection: "A")
+    snapshot.appendItems([4, 5], toSection: "B")
+
+    snapshot.replaceItems(in: "A", with: [10, 20])
+    #expect(snapshot.itemIdentifiers(inSection: "A") == [10, 20])
+    #expect(snapshot.itemIdentifiers(inSection: "B") == [4, 5])
+    #expect(snapshot.numberOfItems == 4)
+  }
+
+  @Test
+  func replaceItemsClearsReloadMarkers() {
+    var snapshot = DiffableDataSourceSnapshot<String, Int>()
+    snapshot.appendSections(["A"])
+    snapshot.appendItems([1, 2], toSection: "A")
+    snapshot.reloadItems([1])
+    snapshot.reconfigureItems([2])
+
+    snapshot.replaceItems(in: "A", with: [3])
+    #expect(snapshot.reloadedItemIdentifiers.isEmpty)
+    #expect(snapshot.reconfiguredItemIdentifiers.isEmpty)
+  }
+
+  @Test
+  func removeItemsRemovesMatching() {
+    var snapshot = DiffableDataSourceSnapshot<String, Int>()
+    snapshot.appendSections(["A", "B"])
+    snapshot.appendItems([1, 2, 3], toSection: "A")
+    snapshot.appendItems([4, 5, 6], toSection: "B")
+
+    snapshot.removeItems { $0.isMultiple(of: 2) }
+    #expect(snapshot.itemIdentifiers(inSection: "A") == [1, 3])
+    #expect(snapshot.itemIdentifiers(inSection: "B") == [5])
+    #expect(snapshot.numberOfItems == 3)
+  }
+
+  @Test
+  func removeItemsNoMatch() {
+    var snapshot = DiffableDataSourceSnapshot<String, Int>()
+    snapshot.appendSections(["A"])
+    snapshot.appendItems([1, 2, 3], toSection: "A")
+
+    snapshot.removeItems { _ in false }
+    #expect(snapshot.numberOfItems == 3)
+    #expect(snapshot.itemIdentifiers(inSection: "A") == [1, 2, 3])
+  }
 }

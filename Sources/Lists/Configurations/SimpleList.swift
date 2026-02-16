@@ -90,6 +90,9 @@ public final class SimpleList<Item: CellViewModel>: NSObject, UICollectionViewDe
 
   // MARK: Public
 
+  /// A convenience alias for the snapshot type used by this list.
+  public typealias Snapshot = DiffableDataSourceSnapshot<Int, Item>
+
   /// The underlying collection view. Add this to your view hierarchy.
   public let collectionView: UICollectionView
   /// Called when the user taps an item.
@@ -115,6 +118,14 @@ public final class SimpleList<Item: CellViewModel>: NSObject, UICollectionViewDe
   /// Closure that returns a context menu configuration for a given item.
   public var contextMenuProvider: (@MainActor (Item) -> UIContextMenuConfiguration?)?
 
+  /// Optional closure called before an item is selected. Return `false` to prevent selection.
+  ///
+  /// Use this to implement conditional selection (e.g. disabling taps on certain items):
+  /// ```swift
+  /// list.shouldSelect = { item in !item.isDisabled }
+  /// ```
+  public var shouldSelect: (@MainActor (Item) -> Bool)?
+
   /// An optional delegate that receives `UIScrollViewDelegate` callbacks from the underlying
   /// collection view's scroll view.
   ///
@@ -125,6 +136,16 @@ public final class SimpleList<Item: CellViewModel>: NSObject, UICollectionViewDe
   /// list.scrollViewDelegate = myScrollHandler
   /// ```
   public weak var scrollViewDelegate: UIScrollViewDelegate?
+
+  /// A view displayed behind the list content. Set to a placeholder (e.g. "No items")
+  /// that is automatically shown when the list is empty and hidden when it has content.
+  ///
+  /// The view is placed as the collection view's `backgroundView`. Visibility is managed
+  /// automatically based on `numberOfItems` after each `setItems` call.
+  public var backgroundView: UIView? {
+    get { collectionView.backgroundView }
+    set { collectionView.backgroundView = newValue }
+  }
 
   /// Per-item separator customization handler.
   ///
@@ -192,6 +213,14 @@ public final class SimpleList<Item: CellViewModel>: NSObject, UICollectionViewDe
     didSet { configureReorderIfNeeded() }
   }
 
+  /// Optional closure that determines whether a specific item can be reordered.
+  ///
+  /// When set, this is called for each item when drag begins. Return `false` to prevent
+  /// an item from being dragged. When `nil`, all items are moveable (if `onMove` is set).
+  public var canMoveItemProvider: (@MainActor (Item) -> Bool)? {
+    didSet { configureReorderIfNeeded() }
+  }
+
   /// The total number of items across all sections.
   public var numberOfItems: Int {
     dataSource.snapshot().numberOfItems
@@ -205,6 +234,13 @@ public final class SimpleList<Item: CellViewModel>: NSObject, UICollectionViewDe
   /// The currently selected items, derived from the collection view's selected index paths.
   public var selectedItems: [Item] {
     (collectionView.indexPathsForSelectedItems ?? []).compactMap { bridge.itemIdentifier(for: $0) }
+  }
+
+  /// The current items in the list, derived from the snapshot.
+  ///
+  /// Returns an empty array if the list has not been populated yet.
+  public var items: [Item] {
+    dataSource.snapshot().itemIdentifiers
   }
 
   /// Replaces the list's items, computing and animating the diff.
@@ -221,6 +257,7 @@ public final class SimpleList<Item: CellViewModel>: NSObject, UICollectionViewDe
       snapshot.appendSections([0])
       snapshot.appendItems(items, toSection: 0)
       await dataSource.apply(snapshot, animatingDifferences: animatingDifferences)
+      collectionView.backgroundView?.isHidden = !items.isEmpty
     }
     applyTask = task
     await withTaskCancellationHandler {
@@ -250,6 +287,38 @@ public final class SimpleList<Item: CellViewModel>: NSObject, UICollectionViewDe
     bridge.indexPath(for: item)
   }
 
+  /// Programmatically selects the specified item.
+  ///
+  /// - Parameters:
+  ///   - item: The item to select.
+  ///   - scrollPosition: Where to scroll after selecting. Pass `[]` for no scrolling.
+  ///   - animated: Whether the selection should be animated.
+  /// - Returns: `true` if the item was found and selected, `false` if not present.
+  @discardableResult
+  public func selectItem(
+    _ item: Item,
+    at scrollPosition: UICollectionView.ScrollPosition = [],
+    animated: Bool = true
+  ) -> Bool {
+    bridge.selectItem(item, in: collectionView, at: scrollPosition, animated: animated)
+  }
+
+  /// Programmatically deselects the specified item.
+  ///
+  /// - Parameters:
+  ///   - item: The item to deselect.
+  ///   - animated: Whether the deselection should be animated.
+  /// - Returns: `true` if the item was found and deselected, `false` if not present.
+  @discardableResult
+  public func deselectItem(_ item: Item, animated: Bool = true) -> Bool {
+    bridge.deselectItem(item, in: collectionView, animated: animated)
+  }
+
+  /// Returns whether the specified item is currently selected.
+  public func isSelected(_ item: Item) -> Bool {
+    bridge.isSelected(item, in: collectionView)
+  }
+
   /// Deselects all currently selected items.
   ///
   /// - Parameter animated: Whether the deselection should be animated.
@@ -257,6 +326,16 @@ public final class SimpleList<Item: CellViewModel>: NSObject, UICollectionViewDe
     for indexPath in collectionView.indexPathsForSelectedItems ?? [] {
       collectionView.deselectItem(at: indexPath, animated: animated)
     }
+  }
+
+  /// Scrolls to the top of the list.
+  public func scrollToTop(animated: Bool = true) {
+    bridge.scrollToTop(in: collectionView, animated: animated)
+  }
+
+  /// Scrolls to the bottom of the list.
+  public func scrollToBottom(animated: Bool = true) {
+    bridge.scrollToBottom(in: collectionView, animated: animated)
   }
 
   /// Programmatically scrolls to the specified item.
@@ -271,6 +350,13 @@ public final class SimpleList<Item: CellViewModel>: NSObject, UICollectionViewDe
     animated: Bool = true
   ) -> Bool {
     bridge.scrollToItem(item, in: collectionView, at: scrollPosition, animated: animated)
+  }
+
+  public func collectionView(
+    _: UICollectionView,
+    shouldSelectItemAt indexPath: IndexPath
+  ) -> Bool {
+    bridge.handleShouldSelect(at: indexPath, shouldSelect: shouldSelect)
   }
 
   public func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
@@ -343,7 +429,14 @@ public final class SimpleList<Item: CellViewModel>: NSObject, UICollectionViewDe
   private func configureReorderIfNeeded() {
     if onMove != nil {
       collectionView.dragInteractionEnabled = true
-      dataSource.canMoveItemHandler = { _ in true }
+      if let canMoveItemProvider {
+        dataSource.canMoveItemHandler = { [weak self] indexPath in
+          guard let item = self?.bridge.itemIdentifier(for: indexPath) else { return false }
+          return canMoveItemProvider(item)
+        }
+      } else {
+        dataSource.canMoveItemHandler = { _ in true }
+      }
       dataSource.didMoveItemHandler = { [weak self] source, dest in
         self?.onMove?(source, dest)
       }

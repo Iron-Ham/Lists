@@ -255,4 +255,73 @@ struct SimpleListTests {
     list.deselectAll(animated: false)
     #expect((list.collectionView.indexPathsForSelectedItems ?? []).isEmpty)
   }
+
+  @Test
+  func selectItemProgrammatically() async {
+    let list = SimpleList<TextItem>()
+    let a = TextItem(text: "A")
+    let b = TextItem(text: "B")
+    await list.setItems([a, b], animatingDifferences: false)
+
+    let result = list.selectItem(a, animated: false)
+    #expect(result == true)
+    #expect(list.selectedItems == [a])
+  }
+
+  @Test
+  func selectItemReturnsFalseForMissing() async {
+    let list = SimpleList<TextItem>()
+    await list.setItems([TextItem(text: "A")], animatingDifferences: false)
+
+    let missing = TextItem(text: "Missing")
+    let result = list.selectItem(missing, animated: false)
+    #expect(result == false)
+    #expect(list.selectedItems.isEmpty)
+  }
+
+  @Test
+  func deselectItemProgrammatically() async {
+    let list = SimpleList<TextItem>()
+    let a = TextItem(text: "A")
+    await list.setItems([a], animatingDifferences: false)
+
+    list.selectItem(a, animated: false)
+    #expect(list.isSelected(a) == true)
+
+    let result = list.deselectItem(a, animated: false)
+    #expect(result == true)
+    #expect(list.isSelected(a) == false)
+  }
+
+  @Test
+  func shouldSelectPreventsSelection() async {
+    let list = SimpleList<TextItem>()
+    let a = TextItem(text: "A")
+    let b = TextItem(text: "B")
+    await list.setItems([a, b], animatingDifferences: false)
+
+    list.shouldSelect = { item in item != a }
+
+    let shouldSelectA = list.collectionView(list.collectionView, shouldSelectItemAt: IndexPath(item: 0, section: 0))
+    let shouldSelectB = list.collectionView(list.collectionView, shouldSelectItemAt: IndexPath(item: 1, section: 0))
+
+    #expect(shouldSelectA == false)
+    #expect(shouldSelectB == true)
+  }
+
+  @Test
+  func shouldSelectDefaultsToTrue() async {
+    let list = SimpleList<TextItem>()
+    let a = TextItem(text: "A")
+    await list.setItems([a], animatingDifferences: false)
+
+    let result = list.collectionView(list.collectionView, shouldSelectItemAt: IndexPath(item: 0, section: 0))
+    #expect(result == true)
+  }
+
+  @Test
+  func snapshotTypeAlias() {
+    // Verify the type alias compiles and resolves correctly
+    let _: SimpleList<TextItem>.Snapshot = DiffableDataSourceSnapshot<Int, TextItem>()
+  }
 }

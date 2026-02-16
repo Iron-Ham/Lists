@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Snapshot `Equatable` conformance**: `DiffableDataSourceSnapshot` now conforms to `Equatable`, comparing section identifiers and item arrays while ignoring transient reload/reconfigure markers.
+- **Snapshot `init(sections:)` convenience initializer**: Build snapshots from `[(SectionID, [ItemID])]` pairs in a single call.
+- **`sectionIdentifier(at:)` on `DiffableDataSourceSnapshot`**: Index-based section lookup, complementing the existing `index(ofSection:)`.
+- **`replaceItems(in:with:)` on `DiffableDataSourceSnapshot`**: Bulk-replace all items in a section without deleting/re-appending the section.
+- **`removeItems(where:)` on `DiffableDataSourceSnapshot`**: Remove items matching a predicate across all sections, following `removeAll(where:)` convention.
+- **`children(of:)` on `DiffableDataSourceSectionSnapshot`**: Returns direct children of a given item, complementing the existing `parent(of:)`.
+- **Programmatic selection**: `selectItem(_:at:animated:)`, `deselectItem(_:animated:)`, and `isSelected(_:)` on `SimpleList`, `GroupedList`, and `OutlineList`.
+- **`shouldSelect` handler**: Closure on all three configurations (+ SwiftUI modifiers) that gates item selection via the `collectionView(_:shouldSelectItemAt:)` delegate.
+- **`backgroundView` property**: Auto-visibility empty-state view on all three configurations (+ SwiftUI modifiers), shown when the list is empty and hidden when it has content.
+- **`canMoveItemProvider`**: Per-item reorder predicate on `SimpleList` and `GroupedList` (+ SwiftUI modifiers).
+- **`scrollToTop` / `scrollToBottom`**: Convenience scroll methods on all three configurations.
+- **OutlineList tree queries**: `allItems`, `visibleItems`, `rootItems`, `parent(of:)`, and `level(of:)` for inspecting the outline hierarchy.
+- **`SimpleList.items`**: Convenience accessor for the current items in the list.
+- **Snapshot type aliases**: `SimpleList.Snapshot`, `GroupedList.Snapshot`, `OutlineList.Snapshot` for ergonomic snapshot type references.
 - **`MixedSection` header/footer support**: Optional `header` and `footer` parameters on `MixedSection`, wired through `MixedListDataSource.apply(content:)` with `headerForSection(_:)`/`footerForSection(_:)` accessors and a `configureListHeaderFooterProvider()` convenience method for automatic supplementary view rendering.
 - **`MixedListDataSource` reorder support**: `canMoveItemHandler` and `didMoveItemHandler` properties for drag-and-drop reordering parity with `ListDataSource`.
 - **Section query methods on `GroupedList`**: `sectionIdentifier(for:)`, `index(for:)`, and `items(in:)` for section-level navigation.
