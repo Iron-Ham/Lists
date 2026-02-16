@@ -46,15 +46,25 @@ final class ListConfigurationBridge<SectionID: Hashable & Sendable, Item: CellVi
   }
 
   /// Configures swipe action providers and separator handler on a list layout configuration.
+  ///
+  /// The closures use `MainActor.assumeIsolated` to assert the runtime invariant that
+  /// UIKit always invokes these on the main thread. This satisfies Swift 6 strict
+  /// concurrency checking without requiring the closure signatures to change.
   func configure(_ config: inout UICollectionLayoutListConfiguration) {
     config.trailingSwipeActionsConfigurationProvider = { [weak self] indexPath in
-      self?.resolveTrailing(at: indexPath)
+      MainActor.assumeIsolated {
+        self?.resolveTrailing(at: indexPath)
+      }
     }
     config.leadingSwipeActionsConfigurationProvider = { [weak self] indexPath in
-      self?.resolveLeading(at: indexPath)
+      MainActor.assumeIsolated {
+        self?.resolveLeading(at: indexPath)
+      }
     }
     config.itemSeparatorHandler = { [weak self] indexPath, defaultConfig in
-      self?.resolveSeparator(at: indexPath, defaultConfiguration: defaultConfig) ?? defaultConfig
+      MainActor.assumeIsolated {
+        self?.resolveSeparator(at: indexPath, defaultConfiguration: defaultConfig) ?? defaultConfig
+      }
     }
   }
 
@@ -159,7 +169,10 @@ final class ListConfigurationBridge<SectionID: Hashable & Sendable, Item: CellVi
       assertionFailure("ListConfigurationBridge.dataSource is nil when resolving trailing swipe action")
       return nil
     }
-    guard let item = dataSource.itemIdentifier(for: indexPath) else { return nil }
+    guard let item = dataSource.itemIdentifier(for: indexPath) else {
+      assertionFailure("Item not found at \(indexPath)")
+      return nil
+    }
     return trailingProvider?(item)
   }
 
@@ -168,7 +181,10 @@ final class ListConfigurationBridge<SectionID: Hashable & Sendable, Item: CellVi
       assertionFailure("ListConfigurationBridge.dataSource is nil when resolving leading swipe action")
       return nil
     }
-    guard let item = dataSource.itemIdentifier(for: indexPath) else { return nil }
+    guard let item = dataSource.itemIdentifier(for: indexPath) else {
+      assertionFailure("Item not found at \(indexPath)")
+      return nil
+    }
     return leadingProvider?(item)
   }
 }

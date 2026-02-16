@@ -91,10 +91,12 @@ public struct GroupedListView<SectionID: Hashable & Sendable, Item: CellViewMode
     @objc
     func handleRefresh(_ sender: UIRefreshControl) {
       guard refreshTask == nil else { return }
-      refreshTask = Task { @MainActor in
-        await onRefresh?()
-        sender.endRefreshing()
-        refreshTask = nil
+      refreshTask = Task { @MainActor [weak self] in
+        defer {
+          sender.endRefreshing()
+          self?.refreshTask = nil
+        }
+        await self?.onRefresh?()
       }
     }
 
