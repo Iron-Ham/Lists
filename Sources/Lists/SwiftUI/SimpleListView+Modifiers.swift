@@ -138,4 +138,34 @@ extension SimpleListView {
     copy.scrollViewDelegate = delegate
     return copy
   }
+
+  /// Sets a closure that determines whether an item should be selectable.
+  ///
+  /// Return `false` to prevent the item from being selected.
+  public func shouldSelect(_ handler: @escaping @MainActor (Item) -> Bool) -> Self {
+    var copy = self
+    copy.shouldSelect = handler
+    return copy
+  }
+
+  /// Sets a view displayed behind the list content.
+  ///
+  /// The view is automatically shown when the list is empty and hidden when it has content.
+  public func backgroundView(_ view: UIView) -> Self {
+    var copy = self
+    copy.backgroundView = view
+    return copy
+  }
+
+  /// Sets a closure that determines whether a specific item can be reordered.
+  ///
+  /// When set alongside ``onMove(_:)``, this is called for each item when drag begins.
+  /// Return `false` to prevent an item from being dragged.
+  public func canMoveItem(
+    _ provider: @escaping @MainActor (Item) -> Bool
+  ) -> Self {
+    var copy = self
+    copy.canMoveItemProvider = provider
+    return copy
+  }
 }

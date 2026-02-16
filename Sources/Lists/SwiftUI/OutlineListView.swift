@@ -129,6 +129,8 @@ public struct OutlineListView<Item: CellViewModel>: UIViewRepresentable {
   public var leadingSwipeActionsProvider: (@MainActor (Item) -> UISwipeActionsConfiguration?)?
   /// Closure that returns a context menu configuration for a given item.
   public var contextMenuProvider: (@MainActor (Item) -> UIContextMenuConfiguration?)?
+  /// Optional closure called before an item is selected. Return `false` to prevent selection.
+  public var shouldSelect: (@MainActor (Item) -> Bool)?
   /// Per-item separator customization handler.
   public var separatorHandler: (@MainActor (Item, UIListSeparatorConfiguration) -> UIListSeparatorConfiguration)?
   /// An async closure invoked on pull-to-refresh.
@@ -136,6 +138,8 @@ public struct OutlineListView<Item: CellViewModel>: UIViewRepresentable {
   /// Called once when the underlying `UICollectionView` is created. Use this to store a reference
   /// for direct UIKit access (e.g. animated layout invalidation).
   public var collectionViewHandler: (@MainActor (UICollectionView) -> Void)?
+  /// A view displayed behind the list content, automatically shown when the list is empty.
+  public var backgroundView: UIView?
   /// An optional delegate that receives `UIScrollViewDelegate` callbacks from the underlying
   /// collection view's scroll view.
   public var scrollViewDelegate: UIScrollViewDelegate?
@@ -160,7 +164,9 @@ public struct OutlineListView<Item: CellViewModel>: UIViewRepresentable {
     list.trailingSwipeActionsProvider = trailingSwipeActionsProvider
     list.leadingSwipeActionsProvider = leadingSwipeActionsProvider
     list.contextMenuProvider = contextMenuProvider
+    list.shouldSelect = shouldSelect
     list.separatorHandler = separatorHandler
+    list.backgroundView = backgroundView
     list.scrollViewDelegate = scrollViewDelegate
     list.allowsMultipleSelection = allowsMultipleSelection
     list.allowsSelectionDuringEditing = allowsSelectionDuringEditing
@@ -201,7 +207,9 @@ public struct OutlineListView<Item: CellViewModel>: UIViewRepresentable {
     list.trailingSwipeActionsProvider = trailingSwipeActionsProvider
     list.leadingSwipeActionsProvider = leadingSwipeActionsProvider
     list.contextMenuProvider = contextMenuProvider
+    list.shouldSelect = shouldSelect
     list.separatorHandler = separatorHandler
+    list.backgroundView = backgroundView
     list.scrollViewDelegate = scrollViewDelegate
     list.allowsMultipleSelection = allowsMultipleSelection
     list.allowsSelectionDuringEditing = allowsSelectionDuringEditing

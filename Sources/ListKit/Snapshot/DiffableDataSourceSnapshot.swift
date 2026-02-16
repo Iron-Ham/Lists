@@ -1,3 +1,5 @@
+// MARK: - DiffableDataSourceSnapshot
+
 /// A point-in-time representation of the data in a collection view, organized by sections and items.
 ///
 /// `DiffableDataSourceSnapshot` is the primary currency type for updating a
@@ -14,6 +16,22 @@ public struct DiffableDataSourceSnapshot<
   // MARK: Lifecycle
 
   public init() { }
+
+  /// Creates a snapshot from an array of section–items pairs.
+  ///
+  /// This is a convenience initializer for building snapshots from pre-grouped data:
+  /// ```swift
+  /// let snapshot = DiffableDataSourceSnapshot(sections: [
+  ///     ("favorites", [item1, item2]),
+  ///     ("recent", [item3]),
+  /// ])
+  /// ```
+  public init(sections: [(SectionIdentifierType, [ItemIdentifierType])]) {
+    appendSections(sections.map(\.0))
+    for (section, items) in sections {
+      appendItems(items, toSection: section)
+    }
+  }
 
   // MARK: Public
 
@@ -368,6 +386,81 @@ public struct DiffableDataSourceSnapshot<
     sectionIndex[identifier] != nil
   }
 
+  /// Returns the section identifier at the given index, or `nil` if out of bounds.
+  public func sectionIdentifier(at index: Int) -> SectionIdentifierType? {
+    guard index >= 0, index < sectionIdentifiers.count else { return nil }
+    return sectionIdentifiers[index]
+  }
+
+  /// Replaces all items in the specified section with the given items.
+  ///
+  /// This is more efficient than deleting and re-appending when you want to replace
+  /// a section's contents wholesale while keeping the section itself in place.
+  public mutating func replaceItems(in section: SectionIdentifierType, with newItems: [ItemIdentifierType]) {
+    guard let idx = sectionIndex[section] else {
+      assertionFailure("Section \(section) not found in snapshot")
+      return
+    }
+
+    #if DEBUG
+    if newItems.count > 1 {
+      var seen = Set<ItemIdentifierType>(minimumCapacity: newItems.count)
+      for item in newItems {
+        assert(seen.insert(item).inserted, "Duplicate item \(item) in replacement batch")
+      }
+    }
+    if let map = _itemToSection {
+      for item in newItems {
+        assert(
+          map[item] == nil || map[item] == section,
+          "Item \(item) already exists in another section. Each item must belong to exactly one section."
+        )
+      }
+    }
+    #endif
+
+    let oldItems = sectionItemArrays[idx]
+    numberOfItems -= oldItems.count
+
+    if _itemToSection != nil {
+      for item in oldItems {
+        _itemToSection!.removeValue(forKey: item)
+      }
+      for item in newItems {
+        _itemToSection![item] = section
+      }
+    }
+
+    // Clean reload/reconfigure markers for removed items
+    for item in oldItems {
+      reloadedItemIdentifiers.remove(item)
+      reconfiguredItemIdentifiers.remove(item)
+    }
+
+    sectionItemArrays[idx] = newItems
+    numberOfItems += newItems.count
+  }
+
+  /// Removes all items matching the predicate from every section.
+  ///
+  /// Items for which the predicate returns `true` are removed; others are kept.
+  /// This follows the same convention as `removeAll(where:)` in the standard library.
+  public mutating func removeItems(where isExcluded: (ItemIdentifierType) -> Bool) {
+    for idx in sectionItemArrays.indices {
+      let before = sectionItemArrays[idx].count
+      sectionItemArrays[idx].removeAll { item in
+        let shouldRemove = isExcluded(item)
+        if shouldRemove {
+          _itemToSection?.removeValue(forKey: item)
+          reloadedItemIdentifiers.remove(item)
+          reconfiguredItemIdentifiers.remove(item)
+        }
+        return shouldRemove
+      }
+      numberOfItems -= before - sectionItemArrays[idx].count
+    }
+  }
+
   // MARK: Internal
 
   /// Fast path for data source queries — avoids section ID → index lookup.
@@ -416,5 +509,17 @@ public struct DiffableDataSourceSnapshot<
     for (index, section) in sectionIdentifiers.enumerated() {
       sectionIndex[section] = index
     }
+  }
+}
+
+// MARK: Equatable
+
+/// Structural equality: two snapshots are equal when they have the same sections in the same
+/// order with the same items in the same order. Transient markers (reload/reconfigure sets) are
+/// intentionally excluded — they represent pending UI operations, not structural identity.
+extension DiffableDataSourceSnapshot: Equatable {
+  public static func ==(lhs: Self, rhs: Self) -> Bool {
+    lhs.sectionIdentifiers == rhs.sectionIdentifiers
+      && lhs.sectionItemArrays == rhs.sectionItemArrays
   }
 }

@@ -135,6 +135,9 @@ public final class OutlineList<Item: CellViewModel>: NSObject, UICollectionViewD
 
   // MARK: Public
 
+  /// A convenience alias for the snapshot type used by this list.
+  public typealias Snapshot = DiffableDataSourceSnapshot<Int, Item>
+
   /// The underlying collection view. Add this to your view hierarchy.
   public let collectionView: UICollectionView
   /// Called when the user taps an item.
@@ -160,12 +163,30 @@ public final class OutlineList<Item: CellViewModel>: NSObject, UICollectionViewD
   /// Closure that returns a context menu configuration for a given item.
   public var contextMenuProvider: (@MainActor (Item) -> UIContextMenuConfiguration?)?
 
+  /// Optional closure called before an item is selected. Return `false` to prevent selection.
+  ///
+  /// Use this to implement conditional selection (e.g. disabling taps on certain items):
+  /// ```swift
+  /// list.shouldSelect = { item in !item.isDisabled }
+  /// ```
+  public var shouldSelect: (@MainActor (Item) -> Bool)?
+
   /// An optional delegate that receives `UIScrollViewDelegate` callbacks from the underlying
   /// collection view's scroll view.
   ///
   /// Use this to track scroll position, detect user-initiated drags, or respond to deceleration
   /// events without replacing the collection view's delegate (which the list manages internally).
   public weak var scrollViewDelegate: UIScrollViewDelegate?
+
+  /// A view displayed behind the list content. Set to a placeholder (e.g. "No items")
+  /// that is automatically shown when the list is empty and hidden when it has content.
+  ///
+  /// The view is placed as the collection view's `backgroundView`. Visibility is managed
+  /// automatically based on `numberOfItems` after each `setItems` call.
+  public var backgroundView: UIView? {
+    get { collectionView.backgroundView }
+    set { collectionView.backgroundView = newValue }
+  }
 
   /// An async closure invoked on pull-to-refresh. The refresh control is dismissed
   /// automatically when the closure returns.
@@ -241,6 +262,31 @@ public final class OutlineList<Item: CellViewModel>: NSObject, UICollectionViewD
     (collectionView.indexPathsForSelectedItems ?? []).compactMap { bridge.itemIdentifier(for: $0) }
   }
 
+  /// All items in the outline, including items hidden under collapsed parents.
+  public var allItems: [Item] {
+    currentSectionSnapshot?.items ?? []
+  }
+
+  /// The currently visible items (excludes items under collapsed parents).
+  public var visibleItems: [Item] {
+    currentSectionSnapshot?.visibleItems ?? []
+  }
+
+  /// The root-level items in the outline.
+  public var rootItems: [Item] {
+    currentSectionSnapshot?.rootItems ?? []
+  }
+
+  /// Returns the parent of the specified item, or `nil` if it is a root item.
+  public func parent(of item: Item) -> Item? {
+    currentSectionSnapshot?.parent(of: item)
+  }
+
+  /// Returns the nesting level of the specified item (0 for root items).
+  public func level(of item: Item) -> Int {
+    currentSectionSnapshot?.level(of: item) ?? 0
+  }
+
   /// Replaces the outline's tree, computing and animating the diff.
   ///
   /// Uses `apply(_:to:animatingDifferences:)` with a section snapshot so UIKit handles
@@ -268,6 +314,7 @@ public final class OutlineList<Item: CellViewModel>: NSObject, UICollectionViewD
       appendItems(items, to: nil, in: &sectionSnapshot)
       currentSectionSnapshot = sectionSnapshot
       await dataSource.apply(sectionSnapshot, to: 0, animatingDifferences: animatingDifferences)
+      collectionView.backgroundView?.isHidden = !items.isEmpty
     }
     applyTask = task
     await withTaskCancellationHandler {
@@ -364,6 +411,38 @@ public final class OutlineList<Item: CellViewModel>: NSObject, UICollectionViewD
     bridge.indexPath(for: item)
   }
 
+  /// Programmatically selects the specified item.
+  ///
+  /// - Parameters:
+  ///   - item: The item to select.
+  ///   - scrollPosition: Where to scroll after selecting. Pass `[]` for no scrolling.
+  ///   - animated: Whether the selection should be animated.
+  /// - Returns: `true` if the item was found and selected, `false` if not present.
+  @discardableResult
+  public func selectItem(
+    _ item: Item,
+    at scrollPosition: UICollectionView.ScrollPosition = [],
+    animated: Bool = true
+  ) -> Bool {
+    bridge.selectItem(item, in: collectionView, at: scrollPosition, animated: animated)
+  }
+
+  /// Programmatically deselects the specified item.
+  ///
+  /// - Parameters:
+  ///   - item: The item to deselect.
+  ///   - animated: Whether the deselection should be animated.
+  /// - Returns: `true` if the item was found and deselected, `false` if not present.
+  @discardableResult
+  public func deselectItem(_ item: Item, animated: Bool = true) -> Bool {
+    bridge.deselectItem(item, in: collectionView, animated: animated)
+  }
+
+  /// Returns whether the specified item is currently selected.
+  public func isSelected(_ item: Item) -> Bool {
+    bridge.isSelected(item, in: collectionView)
+  }
+
   /// Deselects all currently selected items.
   ///
   /// - Parameter animated: Whether the deselection should be animated.
@@ -371,6 +450,16 @@ public final class OutlineList<Item: CellViewModel>: NSObject, UICollectionViewD
     for indexPath in collectionView.indexPathsForSelectedItems ?? [] {
       collectionView.deselectItem(at: indexPath, animated: animated)
     }
+  }
+
+  /// Scrolls to the top of the list.
+  public func scrollToTop(animated: Bool = true) {
+    bridge.scrollToTop(in: collectionView, animated: animated)
+  }
+
+  /// Scrolls to the bottom of the list.
+  public func scrollToBottom(animated: Bool = true) {
+    bridge.scrollToBottom(in: collectionView, animated: animated)
   }
 
   /// Programmatically scrolls to the specified item.
@@ -385,6 +474,13 @@ public final class OutlineList<Item: CellViewModel>: NSObject, UICollectionViewD
     animated: Bool = true
   ) -> Bool {
     bridge.scrollToItem(item, in: collectionView, at: scrollPosition, animated: animated)
+  }
+
+  public func collectionView(
+    _: UICollectionView,
+    shouldSelectItemAt indexPath: IndexPath
+  ) -> Bool {
+    bridge.handleShouldSelect(at: indexPath, shouldSelect: shouldSelect)
   }
 
   public func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {

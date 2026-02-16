@@ -161,6 +161,11 @@ public struct DiffableDataSourceSectionSnapshot<ItemIdentifierType: Hashable & S
     parentMap[item]
   }
 
+  /// Returns the direct children of the specified item, or an empty array if it has none.
+  public func children(of item: ItemIdentifierType) -> [ItemIdentifierType] {
+    childrenMap[item] ?? []
+  }
+
   /// Returns a new section snapshot containing only the subtree rooted at the specified item.
   public func snapshot(of item: ItemIdentifierType, includingParent: Bool = false) -> DiffableDataSourceSectionSnapshot {
     var newSnapshot = DiffableDataSourceSectionSnapshot()

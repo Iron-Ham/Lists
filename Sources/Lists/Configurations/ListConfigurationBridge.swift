@@ -146,6 +146,70 @@ final class ListConfigurationBridge<SectionID: Hashable & Sendable, Item: CellVi
     return true
   }
 
+  /// Programmatically selects the specified item.
+  ///
+  /// - Returns: `true` if the item was found and selected, `false` if not present.
+  @discardableResult
+  func selectItem(
+    _ item: Item,
+    in collectionView: UICollectionView,
+    at scrollPosition: UICollectionView.ScrollPosition = [],
+    animated: Bool = true
+  ) -> Bool {
+    guard let indexPath = dataSource?.indexPath(for: item) else { return false }
+    collectionView.selectItem(at: indexPath, animated: animated, scrollPosition: scrollPosition)
+    return true
+  }
+
+  /// Programmatically deselects the specified item.
+  ///
+  /// - Returns: `true` if the item was found and deselected, `false` if not present.
+  @discardableResult
+  func deselectItem(
+    _ item: Item,
+    in collectionView: UICollectionView,
+    animated: Bool = true
+  ) -> Bool {
+    guard let indexPath = dataSource?.indexPath(for: item) else { return false }
+    collectionView.deselectItem(at: indexPath, animated: animated)
+    return true
+  }
+
+  /// Returns whether the specified item is currently selected.
+  func isSelected(_ item: Item, in collectionView: UICollectionView) -> Bool {
+    guard let indexPath = dataSource?.indexPath(for: item) else { return false }
+    return collectionView.indexPathsForSelectedItems?.contains(indexPath) ?? false
+  }
+
+  /// Handles a `shouldSelectItemAt` delegate call.
+  func handleShouldSelect(
+    at indexPath: IndexPath,
+    shouldSelect: (@MainActor (Item) -> Bool)?
+  ) -> Bool {
+    guard let shouldSelect else { return true }
+    guard let item = dataSource?.itemIdentifier(for: indexPath) else {
+      assertionFailure("Item not found for indexPath \(indexPath)")
+      return true
+    }
+    return shouldSelect(item)
+  }
+
+  /// Scrolls to the top of the collection view.
+  func scrollToTop(in collectionView: UICollectionView, animated: Bool) {
+    let topOffset = CGPoint(x: 0, y: -collectionView.adjustedContentInset.top)
+    collectionView.setContentOffset(topOffset, animated: animated)
+  }
+
+  /// Scrolls to the bottom of the collection view.
+  func scrollToBottom(in collectionView: UICollectionView, animated: Bool) {
+    let contentHeight = collectionView.contentSize.height
+    let frameHeight = collectionView.bounds.height
+    let bottomInset = collectionView.adjustedContentInset.bottom
+    guard contentHeight > frameHeight else { return }
+    let bottomOffset = CGPoint(x: 0, y: contentHeight - frameHeight + bottomInset)
+    collectionView.setContentOffset(bottomOffset, animated: animated)
+  }
+
   /// Resolves the separator configuration for an item.
   ///
   /// Uses optional chaining for `dataSource` rather than `assertionFailure` because

@@ -230,4 +230,23 @@ struct SectionSnapshotTests {
     let snapshot = DiffableDataSourceSectionSnapshot<String>()
     let _: any Sendable = snapshot
   }
+
+  @Test
+  func childrenOfParent() {
+    var snapshot = DiffableDataSourceSectionSnapshot<String>()
+    snapshot.append(["A"])
+    snapshot.append(["A1", "A2"], to: "A")
+    snapshot.append(["A1a"], to: "A1")
+
+    #expect(snapshot.children(of: "A") == ["A1", "A2"])
+    #expect(snapshot.children(of: "A1") == ["A1a"])
+    #expect(snapshot.children(of: "A2").isEmpty)
+    #expect(snapshot.children(of: "A1a").isEmpty)
+  }
+
+  @Test
+  func childrenOfNonexistentItem() {
+    let snapshot = DiffableDataSourceSectionSnapshot<String>()
+    #expect(snapshot.children(of: "missing").isEmpty)
+  }
 }
