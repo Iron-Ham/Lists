@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-02-16
+
 ### Added
 
 - **UIKit chat examples**: Two new UIKit counterparts to the existing SwiftUI chat example — `ListsChatExampleViewController` (`SimpleList` + `CellViewModel` + `UIHostingConfiguration`) and `ListKitChatExampleViewController` (raw `CollectionViewDiffableDataSource` with pure UIKit cells and manual cell reconfiguration).
@@ -21,14 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`SnapshotSection` header/footer support**: `header` and `footer` optional parameters in the `SnapshotBuilder` DSL, wired through to `GroupedList.setSections`.
 - **`Snapshot.contains(_:)` and `contains(section:)`**: Convenience queries using the reverse map for O(1) lookups when available.
 
-### Fixed
-
-- **Chat example separators**: Added explicit `separatorHandler` to `ListsChatExampleViewController` to ensure separators are fully hidden, preventing `itemSeparatorHandler` from overriding `showsSeparators: false`.
-
 ### Changed
 
-- **AGENTS.md pre-commit documentation check**: Agents are now prompted to reflect on whether they've discovered new codebase knowledge before every commit, and to update or create `AGENTS.md` files accordingly.
-- **AGENTS.md**: Agents must now run `make docs` when modifying public API, doc comments, or DocC catalog content
 - **BREAKING: SwiftUI view initializers simplified**: `SimpleListView`, `GroupedListView`, and `OutlineListView` CellViewModel-based initializers now accept only layout/structural parameters. Behavioral properties (`onSelect`, `onDelete`, `onRefresh`, `editing`, etc.) must be set via the new chainable modifiers. Inline content initializers retain item-typed behavioral params (e.g., `onSelect`, `onDelete`) since they perform `Data → Item` wrapping.
 - **Refresh control logic consolidated**: Extracted `RefreshControlManager` to replace triplicated refresh control code across `SimpleList`, `GroupedList`, and `OutlineList`.
 - **Example app updated**: All UIKit examples use `ListCellViewModel` and `setListContent()`. `OutlineExampleViewController` uses builder DSL. `SwiftUIWrappersExampleView` demonstrates modifier-based configuration. `LiveExampleViewController` uses `ContentEquatable` for automatic reconfiguration.
@@ -36,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Chat example separators**: Added explicit `separatorHandler` to `ListsChatExampleViewController` to ensure separators are fully hidden, preventing `itemSeparatorHandler` from overriding `showsSeparators: false`.
 - **Cell reuse accessory leak**: `setListContent()` now unconditionally assigns accessories, preventing stale accessories from persisting across cell reuse.
 - **`ListAccessory.progress` crash**: Replaced `translatesAutoresizingMaskIntoConstraints = false` (which violates `UICellAccessory.customView` requirements) with `reservedLayoutWidth: .custom(60)`.
 
