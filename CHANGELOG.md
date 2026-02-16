@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **AGENTS.md pre-commit documentation check**: Agents are now prompted to reflect on whether they've discovered new codebase knowledge before every commit, and to update or create `AGENTS.md` files accordingly.
+
 ## [0.4.0] - 2026-02-15
 
 ### Added
