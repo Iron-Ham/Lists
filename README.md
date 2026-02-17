@@ -101,15 +101,15 @@ All benchmarks run in **Release configuration** with median-of-15 and 5 warmup i
 | Reload 5k items | 0.099 ms | 1.547 ms | **15.7x** |
 | Query itemIdentifiers 100x | 0.051 ms | 46.364 ms | **908.3x** |
 
-#### With struct items (ID-only hashing)
+#### With Item.ID (UUID) — realistic pattern
 
-Real-world items typically hash by ID only, not all fields. These benchmarks use a struct with `hash(into:)` and `==` that only consider the `id` property — the pattern used by most apps.
+Real-world apps store `Item.ID` in the snapshot, not the full model — the [Apple-recommended pattern](https://developer.apple.com/documentation/uikit/uicollectionviewdiffabledatasource). These benchmarks use `UUID` identifiers from an `Identifiable` model type.
 
 | Operation | ListKit | Apple | Speedup |
 |:---|---:|---:|---:|
-| Build 10k struct items | 0.003 ms | 2.775 ms | **900.2x** |
-| Delete 5k struct items | 1.426 ms | 4.957 ms | **3.5x** |
-| Reload 5k struct items | 0.213 ms | 3.685 ms | **17.3x** |
+| Build 10k Item.IDs | 0.003 ms | 2.269 ms | **789.2x** |
+| Delete 5k Item.IDs | 1.358 ms | 4.084 ms | **3.0x** |
+| Reload 5k Item.IDs | 0.284 ms | 2.738 ms | **9.6x** |
 
 ListKit snapshots are pure Swift value types with flat array storage and a lazy reverse index. Apple's `NSDiffableDataSourceSnapshot` is backed by Objective-C runtime overhead and per-query hashing.
 
