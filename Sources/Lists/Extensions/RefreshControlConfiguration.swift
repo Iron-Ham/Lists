@@ -1,3 +1,5 @@
+// ABOUTME: Pull-to-refresh support for UIKit list configurations.
+// ABOUTME: RefreshControlManager owns the async refresh lifecycle and spinner dismissal.
 import UIKit
 
 /// Configures a `UIRefreshControl` on a collection view when `onRefresh` is non-nil,

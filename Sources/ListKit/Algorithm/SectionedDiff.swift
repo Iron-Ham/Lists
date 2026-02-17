@@ -1,3 +1,6 @@
+// ABOUTME: Per-section item diffing with cross-section move reconciliation.
+// ABOUTME: Combines HeckelDiff results into a StagedChangeset for batch updates.
+
 import Foundation
 
 enum SectionedDiff {

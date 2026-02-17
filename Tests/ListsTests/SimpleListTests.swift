@@ -1,3 +1,5 @@
+// ABOUTME: Tests for SimpleList: setItems, selection, deselection, move, delete, and builder DSL.
+// ABOUTME: Covers single/multiple selection, programmatic select/deselect, and cancellation.
 import Testing
 import UIKit
 @testable import ListKit

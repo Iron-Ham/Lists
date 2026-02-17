@@ -1,3 +1,5 @@
+// ABOUTME: Convenience protocol defaulting Cell to UICollectionViewListCell.
+// ABOUTME: Eliminates the typealias boilerplate for the most common cell type.
 import UIKit
 
 /// A convenience refinement of ``CellViewModel`` that defaults the cell type to `UICollectionViewListCell`.

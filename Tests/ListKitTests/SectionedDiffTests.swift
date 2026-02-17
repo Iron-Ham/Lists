@@ -1,3 +1,5 @@
+// ABOUTME: Tests for SectionedDiff: section and item inserts, deletes, moves, and reloads.
+// ABOUTME: Validates cross-section moves, reload markers, and changeset properties.
 import Foundation
 import Testing
 @testable import ListKit

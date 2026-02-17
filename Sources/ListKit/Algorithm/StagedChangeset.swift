@@ -1,3 +1,6 @@
+// ABOUTME: Groups diff results into a single value type for UICollectionView batch updates.
+// ABOUTME: Holds section/item deletes, inserts, moves, reloads, and reconfigures.
+
 import Foundation
 
 // MARK: - StagedChangeset

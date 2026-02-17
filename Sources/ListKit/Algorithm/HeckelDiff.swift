@@ -1,3 +1,6 @@
+// ABOUTME: O(n) Heckel diff algorithm for flat arrays.
+// ABOUTME: Produces inserts, deletes, and minimal moves via LIS-based reordering.
+
 // MARK: - HeckelDiff
 
 /// Implementation of Paul Heckel's 6-pass O(n) diff algorithm for flat arrays.

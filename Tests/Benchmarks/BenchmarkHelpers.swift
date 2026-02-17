@@ -1,3 +1,5 @@
+// ABOUTME: Shared benchmark utilities: median-of-N timing, millisecond formatting, speedup ratios.
+// ABOUTME: Provides benchmark(), ms(), and speedup() helpers used by all benchmark test files.
 import Foundation
 
 /// Measures the median duration over `runs` iterations after `warmup` throwaway runs.

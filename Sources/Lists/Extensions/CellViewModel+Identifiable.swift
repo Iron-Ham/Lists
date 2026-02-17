@@ -1,3 +1,5 @@
+// ABOUTME: Default Hashable/Equatable for CellViewModel & Identifiable types.
+// ABOUTME: Derives equality and hashing from id only; content changes need reconfigure.
 import Foundation
 
 /// Automatic id-based `Hashable`/`Equatable` for `CellViewModel & Identifiable`.

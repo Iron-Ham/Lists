@@ -1,3 +1,5 @@
+// ABOUTME: Tests for DiffableDataSourceSectionSnapshot: hierarchical tree operations.
+// ABOUTME: Covers append, expand/collapse, visibility, sub-snapshots, and deletion cascades.
 import Testing
 @testable import ListKit
 

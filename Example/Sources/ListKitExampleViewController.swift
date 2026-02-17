@@ -1,3 +1,5 @@
+// ABOUTME: Raw ListKit API demo with manual snapshot building.
+// ABOUTME: Shows two-section list with headers, footers, shuffle, add, and drag reorder.
 import ListKit
 import UIKit
 

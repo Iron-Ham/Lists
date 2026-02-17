@@ -1,3 +1,5 @@
+// ABOUTME: Hierarchical outline list with expand/collapse via section snapshots.
+// ABOUTME: Defines OutlineItem (tree node) and OutlineList (UICollectionView config).
 import ListKit
 import UIKit
 

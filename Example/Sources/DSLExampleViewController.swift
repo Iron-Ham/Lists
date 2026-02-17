@@ -1,3 +1,5 @@
+// ABOUTME: Demo of @SnapshotBuilder DSL with GroupedList for declarative snapshots.
+// ABOUTME: Shows header/footer support, pull-to-refresh, and snapshot querying.
 import ListKit
 import Lists
 import UIKit

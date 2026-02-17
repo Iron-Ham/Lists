@@ -1,3 +1,5 @@
+// ABOUTME: SwiftUI interop demo rendering CellViewModels via UIHostingConfiguration.
+// ABOUTME: Shows a contact list with SwiftUI-rendered rows in a GroupedList.
 import Lists
 import SwiftUI
 import UIKit

@@ -1,3 +1,5 @@
+// ABOUTME: Chat UI built with raw CollectionViewDiffableDataSource and pure UIKit cells.
+// ABOUTME: Manually reconfigures cells during streaming via UIContentConfiguration.
 import ListKit
 import SwiftUI
 import UIKit

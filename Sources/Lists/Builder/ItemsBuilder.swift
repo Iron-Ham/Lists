@@ -1,3 +1,5 @@
+// ABOUTME: @resultBuilder for constructing item arrays within a section.
+// ABOUTME: Supports if/else, for-in, and Optional for declarative item lists.
 /// A result builder for constructing arrays of a single ``CellViewModel`` type.
 ///
 /// Used by ``SimpleList/setItems(animatingDifferences:content:)`` and

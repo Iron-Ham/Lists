@@ -1,3 +1,5 @@
+// ABOUTME: Tests for list configuration: appearance, separators, headers, footers, and selection.
+// ABOUTME: Covers SimpleList, GroupedList, OutlineList, ListLayout, and ListConfigurationBridge.
 import Testing
 import UIKit
 @testable import ListKit

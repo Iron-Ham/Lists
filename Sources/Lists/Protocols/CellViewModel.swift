@@ -1,3 +1,5 @@
+// ABOUTME: Core CellViewModel protocol: Hashable + Sendable + cell configuration.
+// ABOUTME: Also defines CellRegistrar for automatic UICollectionView.CellRegistration.
 import UIKit
 
 // MARK: - CellViewModel

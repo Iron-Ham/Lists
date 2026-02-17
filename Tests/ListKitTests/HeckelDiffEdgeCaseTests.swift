@@ -1,3 +1,5 @@
+// ABOUTME: Edge case tests for HeckelDiff: duplicates, cascading moves, index coverage.
+// ABOUTME: Inspired by IGListKit's test suite and Heckel's 1978 paper examples.
 import Testing
 @testable import ListKit
 

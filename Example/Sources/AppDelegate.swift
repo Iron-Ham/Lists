@@ -1,3 +1,5 @@
+// ABOUTME: App delegate handling launch and scene configuration.
+// ABOUTME: Wires SceneDelegate as the window scene delegate.
 import UIKit
 
 @main

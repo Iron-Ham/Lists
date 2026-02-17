@@ -1,3 +1,5 @@
+// ABOUTME: Hierarchical expand/collapse demo using OutlineList with a file browser tree.
+// ABOUTME: Uses OutlineItemBuilder DSL and supports swipe actions and pull-to-refresh.
 import Lists
 import UIKit
 

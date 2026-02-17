@@ -1,3 +1,5 @@
+// ABOUTME: Benchmarks comparing ListKit's Heckel diff vs IGListKit's Obj-C++ ListDiff.
+// ABOUTME: Tests 10k/50k elements, no-change, and shuffle scenarios.
 import Foundation
 import IGListDiffKit
 import Testing

@@ -1,3 +1,6 @@
+// ABOUTME: Value-type snapshot of sections and items, replacing NSDiffableDataSourceSnapshot.
+// ABOUTME: Uses parallel arrays and lazy reverse indexes for O(1) lookups and O(n) diffing.
+
 // MARK: - DiffableDataSourceSnapshot
 
 /// A point-in-time representation of the data in a collection view, organized by sections and items.

@@ -1,3 +1,5 @@
+// ABOUTME: SwiftUI-style chained modifiers for OutlineListView configuration.
+// ABOUTME: Provides onSelect, onDelete, onRefresh, swipe actions, and contextMenu.
 import UIKit
 
 /// SwiftUI-style modifier API for ``OutlineListView``.

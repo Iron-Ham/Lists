@@ -1,3 +1,5 @@
+// ABOUTME: Tests for DiffableDataSourceSnapshot: sections, items, mutations, and equality.
+// ABOUTME: Covers append, insert, delete, move, reload, replace, and convenience initializers.
 import Testing
 @testable import ListKit
 

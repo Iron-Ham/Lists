@@ -49,6 +49,18 @@ Tests require an iOS Simulator destination. The Makefile defaults to `iPhone 17 
 
 ## Code Style
 
+- **`// ABOUTME:` comments** — Every `.swift` file must begin with a `// ABOUTME:` comment block (before imports). This is a 1-2 line summary of what the file contains. Format:
+  ```swift
+  // ABOUTME: Short description of this file's purpose.
+  // ABOUTME: Optional second line with additional context.
+  ```
+  Rules:
+  - Place at the very top of the file (line 1), before any `import` statements
+  - Use `// ABOUTME:` prefix on each line (not `///` or `/* */`)
+  - Keep each line under 100 characters
+  - First line: what the file defines or provides
+  - Optional second line: key relationships, constraints, or non-obvious details
+  - When creating or modifying a file, ensure it has an `// ABOUTME:` comment
 - **Swift 6** strict concurrency — all public types must be `Sendable`
 - **SwiftFormat** with Airbnb-based config (see `.swiftformat`)
   - 2-space indentation

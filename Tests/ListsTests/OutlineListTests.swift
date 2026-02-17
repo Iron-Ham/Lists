@@ -1,3 +1,5 @@
+// ABOUTME: Tests for OutlineList: hierarchical items, expand/collapse, and selection.
+// ABOUTME: Covers flat items, nested expansion, programmatic toggle, and cancellation safety.
 import Testing
 import UIKit
 @testable import ListKit

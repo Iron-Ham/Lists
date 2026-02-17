@@ -1,3 +1,5 @@
+// ABOUTME: Protocol extending CellViewModel with a SwiftUI body and accessories.
+// ABOUTME: Default configure(_:) renders body via UIHostingConfiguration.
 import SwiftUI
 import UIKit
 

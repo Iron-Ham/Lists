@@ -1,3 +1,5 @@
+// ABOUTME: Tests for ListAccessory enum: equality, hashing, and UICellAccessory production.
+// ABOUTME: Covers all cases: label, badge, toggle, image, progress, popUpMenu, and more.
 import Testing
 import UIKit
 @testable import Lists

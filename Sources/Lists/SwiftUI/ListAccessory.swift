@@ -1,3 +1,5 @@
+// ABOUTME: Pure-Swift enum mapping to UICellAccessory for use in cell view models.
+// ABOUTME: Includes standard, custom, toggle, badge, and other accessory types.
 import UIKit
 
 /// A pure-Swift cell accessory type that replaces `UICellAccessory` in SwiftUI cell view models.

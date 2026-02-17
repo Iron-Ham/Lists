@@ -1,3 +1,5 @@
+// ABOUTME: Generates a markdown benchmark report comparing ListKit vs Apple snapshot operations.
+// ABOUTME: Writes results to /tmp/listkit_benchmark_results.txt.
 import Foundation
 import ListKit
 import Testing

@@ -1,3 +1,5 @@
+// ABOUTME: Pure SwiftUI demo of SimpleListView, GroupedListView, and OutlineListView wrappers.
+// ABOUTME: Segmented picker switches between simple, grouped, and outline list demos.
 import Lists
 import SwiftUI
 import UIKit

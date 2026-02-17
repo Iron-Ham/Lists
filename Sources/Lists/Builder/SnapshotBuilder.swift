@@ -1,3 +1,5 @@
+// ABOUTME: @resultBuilder for single-type snapshots with SnapshotSection.
+// ABOUTME: Defines SnapshotSection (section + items) and SnapshotBuilder.
 // MARK: - SnapshotSection
 
 /// A section definition used by the ``SnapshotBuilder`` result builder DSL.

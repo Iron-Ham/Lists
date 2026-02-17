@@ -1,3 +1,5 @@
+// ABOUTME: @resultBuilder for hierarchical OutlineItem trees.
+// ABOUTME: Also extends OutlineItem with a builder-based children initializer.
 // MARK: - OutlineItemBuilder
 
 /// A result builder for constructing arrays of ``OutlineItem`` declaratively.

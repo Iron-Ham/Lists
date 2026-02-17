@@ -1,3 +1,5 @@
+// ABOUTME: Tests for GroupedList: sections with headers/footers, SectionModel, and callbacks.
+// ABOUTME: Covers setSections, selection, deletion, move handlers, and query APIs.
 import Testing
 import UIKit
 @testable import ListKit

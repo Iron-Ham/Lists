@@ -1,3 +1,5 @@
+// ABOUTME: DSL extensions on DiffableDataSourceSnapshot for single-type builders.
+// ABOUTME: Adds init(content:) using @SnapshotBuilder for declarative snapshots.
 import ListKit
 
 extension DiffableDataSourceSnapshot where ItemIdentifierType: CellViewModel {

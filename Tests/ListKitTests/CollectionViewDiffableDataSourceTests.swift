@@ -1,3 +1,5 @@
+// ABOUTME: Tests for CollectionViewDiffableDataSource: apply, query, move, and supplementary views.
+// ABOUTME: Covers init, snapshot apply, section/item queries, move handling, and reloadData.
 import Testing
 import UIKit
 @testable import ListKit

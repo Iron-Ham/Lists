@@ -1,3 +1,5 @@
+// ABOUTME: Multi-section grouped list demo using GroupedList with SectionModel.
+// ABOUTME: Showcases swipe actions, selection modes, drag-to-reorder, and pull-to-refresh.
 import Lists
 import UIKit
 

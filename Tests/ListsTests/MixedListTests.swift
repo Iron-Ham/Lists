@@ -1,3 +1,5 @@
+// ABOUTME: Tests for MixedListDataSource, AnyItem, MixedItemsBuilder, and MixedSection DSL.
+// ABOUTME: Covers type erasure equality/hashing, mixed-type snapshots, and builder control flow.
 import Testing
 import UIKit
 @testable import ListKit

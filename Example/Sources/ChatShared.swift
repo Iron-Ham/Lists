@@ -1,3 +1,5 @@
+// ABOUTME: Shared chat types used by all three chat examples.
+// ABOUTME: Defines ChatMessageModel, ChatMessageRef, ChatBubbleView, ChatConversation, and more.
 import Foundation
 import SwiftUI
 import UIKit

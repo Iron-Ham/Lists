@@ -1,3 +1,5 @@
+// ABOUTME: Performance tests for the Lists module: DSL build, full pipeline diff, pagination.
+// ABOUTME: Validates DSL overhead vs manual build and simulates incremental scroll updates.
 import Foundation
 import Testing
 @testable import ListKit

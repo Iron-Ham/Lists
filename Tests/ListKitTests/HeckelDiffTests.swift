@@ -1,3 +1,5 @@
+// ABOUTME: Core unit tests for the O(n) HeckelDiff algorithm.
+// ABOUTME: Covers inserts, deletes, moves, duplicates, LIS-based move minimization.
 import Testing
 @testable import ListKit
 

@@ -1,3 +1,5 @@
+// ABOUTME: Section struct bundling an ID, items array, and optional header/footer text.
+// ABOUTME: Used by GroupedList and ListDataSource for multi-section list definitions.
 // MARK: - SectionModel
 
 /// A section with an identifier, items, and optional header/footer text.

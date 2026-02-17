@@ -1,3 +1,5 @@
+// ABOUTME: SwiftUI wrapper (UIViewRepresentable) around SimpleList.
+// ABOUTME: Supports flat item lists, inline content, and chained modifiers.
 import SwiftUI
 import UIKit
 

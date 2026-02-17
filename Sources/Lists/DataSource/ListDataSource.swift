@@ -1,3 +1,5 @@
+// ABOUTME: Type-safe data source for a single CellViewModel type.
+// ABOUTME: Wraps CollectionViewDiffableDataSource with automatic cell registration.
 import ListKit
 import UIKit
 

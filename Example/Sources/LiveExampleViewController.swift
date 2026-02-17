@@ -1,3 +1,5 @@
+// ABOUTME: Timer-driven live-update demo simulating a stock watchlist.
+// ABOUTME: Uses ContentEquatable for automatic cell reconfiguration on price changes.
 import ListKit
 import Lists
 import UIKit
