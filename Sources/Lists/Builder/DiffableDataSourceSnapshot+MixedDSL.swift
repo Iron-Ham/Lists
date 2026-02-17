@@ -1,3 +1,5 @@
+// ABOUTME: Mixed DSL extensions on DiffableDataSourceSnapshot for AnyItem snapshots.
+// ABOUTME: Adds init(content:) using @MixedSnapshotBuilder for heterogeneous cells.
 import ListKit
 
 extension DiffableDataSourceSnapshot where ItemIdentifierType == AnyItem {

@@ -1,3 +1,5 @@
+// ABOUTME: Scene delegate that sets up the main window with a tab bar controller.
+// ABOUTME: Each tab hosts one example (ListKit, Manual, DSL, Mixed, Outline, SwiftUI, etc.).
 import SwiftUI
 import UIKit
 

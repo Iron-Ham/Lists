@@ -1,3 +1,5 @@
+// ABOUTME: Tests for the CellViewModel protocol: Hashable, Sendable, and cell configuration.
+// ABOUTME: Also tests CellRegistrar dequeue behavior with UICollectionView.
 import Testing
 import UIKit
 @testable import Lists

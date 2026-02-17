@@ -1,3 +1,5 @@
+// ABOUTME: SwiftUI-style chained modifiers for SimpleListView configuration.
+// ABOUTME: Provides onSelect, onDelete, onMove, onRefresh, separatorHandler, and more.
 import UIKit
 
 /// SwiftUI-style modifier API for ``SimpleListView``.

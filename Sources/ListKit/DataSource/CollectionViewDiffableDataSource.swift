@@ -1,3 +1,6 @@
+// ABOUTME: Drop-in replacement for UICollectionViewDiffableDataSource.
+// ABOUTME: Serializes concurrent applies via Task chaining and uses ListKit's own snapshots.
+
 import UIKit
 
 /// A data source that manages a `UICollectionView` using snapshots and animated batch updates.
@@ -229,13 +232,18 @@ public final class CollectionViewDiffableDataSource<
       fallbackRegistrations.count < 10,
       "Excessive supplementary element kinds (\(fallbackRegistrations.count)). Verify element kinds are not dynamically generated."
     )
-    if fallbackRegistrations[kind] == nil {
-      fallbackRegistrations[kind] = UICollectionView.SupplementaryRegistration<UICollectionReusableView>(
+    let registration: UICollectionView.SupplementaryRegistration<UICollectionReusableView>
+    if let existing = fallbackRegistrations[kind] {
+      registration = existing
+    } else {
+      let newReg = UICollectionView.SupplementaryRegistration<UICollectionReusableView>(
         elementKind: kind
       ) { _, _, _ in }
+      fallbackRegistrations[kind] = newReg
+      registration = newReg
     }
     return collectionView.dequeueConfiguredReusableSupplementary(
-      using: fallbackRegistrations[kind]!,
+      using: registration,
       for: indexPath
     )
   }

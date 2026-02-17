@@ -1,3 +1,5 @@
+// ABOUTME: Heterogeneous data source supporting multiple CellViewModel types.
+// ABOUTME: Uses AnyItem type erasure with lazy cell registration via DynamicCellRegistrar.
 import ListKit
 import UIKit
 

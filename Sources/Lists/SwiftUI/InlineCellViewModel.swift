@@ -1,3 +1,5 @@
+// ABOUTME: Type-erased CellViewModel wrapping a data value and @ViewBuilder closure.
+// ABOUTME: Used by inline-content convenience inits on SwiftUI list wrappers.
 import SwiftUI
 import UIKit
 

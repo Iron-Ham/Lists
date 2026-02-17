@@ -1,3 +1,5 @@
+// ABOUTME: Benchmarks comparing ListKit snapshot construction vs ReactiveCollectionsKit.
+// ABOUTME: Measures model build overhead and type erasure cost across various data sizes.
 import Foundation
 import ListKit
 import ReactiveCollectionsKit

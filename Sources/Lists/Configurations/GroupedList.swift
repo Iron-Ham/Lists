@@ -1,3 +1,5 @@
+// ABOUTME: Multi-section grouped list configuration with headers and footers.
+// ABOUTME: Manages UICollectionView layout, data source, and delegate internally.
 import ListKit
 import UIKit
 

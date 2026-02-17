@@ -1,3 +1,5 @@
+// ABOUTME: Tests for data source lifecycle: serialization, cancellation, and deallocation safety.
+// ABOUTME: Validates rapid apply calls, empty snapshots, and reloadData interleaving.
 import Testing
 import UIKit
 @testable import ListKit

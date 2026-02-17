@@ -1,3 +1,5 @@
+// ABOUTME: Reusable UIKit input bar with a text field and send button.
+// ABOUTME: Shared by the UIKit chat examples (ListKit and Lists variants).
 import UIKit
 
 // MARK: - ChatInputBar

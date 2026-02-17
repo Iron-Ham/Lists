@@ -1,3 +1,5 @@
+// ABOUTME: Performance tests verifying O(n) scaling for HeckelDiff and SectionedDiff.
+// ABOUTME: Tests up to 100k elements with timing assertions to catch regressions.
 import Foundation
 import Testing
 @testable import ListKit

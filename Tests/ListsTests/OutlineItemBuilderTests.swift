@@ -1,3 +1,5 @@
+// ABOUTME: Tests for OutlineItemBuilder result builder: leaf nodes, nesting, and control flow.
+// ABOUTME: Also tests OutlineList.setItems with the builder DSL.
 import Testing
 import UIKit
 @testable import ListKit

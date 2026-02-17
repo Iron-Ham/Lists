@@ -1,3 +1,5 @@
+// ABOUTME: Shared bridge resolving IndexPath-to-Item for layout config handlers.
+// ABOUTME: Centralizes delegate logic (swipe, separator, selection) across list types.
 @preconcurrency import UIKit
 
 /// A reference-type bridge that resolves `IndexPath` -> `Item` for layout configuration handlers

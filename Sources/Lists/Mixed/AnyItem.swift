@@ -1,3 +1,5 @@
+// ABOUTME: Type-erased CellViewModel wrapper enabling heterogeneous cell types.
+// ABOUTME: Also defines DynamicCellRegistrar for lazy cell class registration.
 import UIKit
 
 // MARK: - AnyItem

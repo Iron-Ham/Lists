@@ -1,3 +1,5 @@
+// ABOUTME: Tests for SnapshotBuilder DSL: sections, items, conditionals, loops, and headers.
+// ABOUTME: Also tests SectionModel builder init, snapshot contains helpers, and availability.
 import Testing
 import UIKit
 @testable import ListKit

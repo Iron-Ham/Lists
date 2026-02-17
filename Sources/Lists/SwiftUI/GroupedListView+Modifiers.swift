@@ -1,3 +1,5 @@
+// ABOUTME: SwiftUI-style chained modifiers for GroupedListView configuration.
+// ABOUTME: Includes onMove, headerContentProvider, and footerContentProvider.
 import UIKit
 
 /// SwiftUI-style modifier API for ``GroupedListView``.

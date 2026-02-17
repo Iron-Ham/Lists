@@ -1,3 +1,5 @@
+// ABOUTME: Benchmarks measuring AnyItem type erasure overhead vs concrete ListDataSource.
+// ABOUTME: Compares wrapping, snapshot building, diffing, and DSL paths for mixed types.
 import Foundation
 import Lists
 import Testing

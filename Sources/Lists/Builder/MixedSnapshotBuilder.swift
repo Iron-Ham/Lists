@@ -1,3 +1,5 @@
+// ABOUTME: @resultBuilder types for mixed-type snapshots with heterogeneous cells.
+// ABOUTME: Defines MixedSection, MixedItemsBuilder, and MixedSnapshotBuilder.
 // MARK: - MixedSection
 
 /// A section containing mixed `CellViewModel` types, wrapped as ``AnyItem``.

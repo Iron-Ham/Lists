@@ -1,3 +1,5 @@
+// ABOUTME: SwiftUI chat interface demo using SimpleListView with live-streaming text.
+// ABOUTME: Contains ChatExampleView (the UI) and ChatStore (@Observable data source).
 import Lists
 import SwiftUI
 import UIKit

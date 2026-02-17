@@ -1,3 +1,5 @@
+// ABOUTME: Chat UI using SimpleList + CellViewModel + UIHostingConfiguration.
+// ABOUTME: @Observable model drives automatic cell updates during streaming.
 import Lists
 import SwiftUI
 import UIKit

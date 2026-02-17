@@ -1,3 +1,5 @@
+// ABOUTME: Opt-in protocol for automatic content change detection in data sources.
+// ABOUTME: Enables auto-reconfigure when identity matches but content differs.
 // MARK: - ContentEquatable
 
 /// Opt-in protocol for automatic content change detection in diffable data sources.

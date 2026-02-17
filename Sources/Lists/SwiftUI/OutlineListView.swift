@@ -1,3 +1,5 @@
+// ABOUTME: SwiftUI wrapper (UIViewRepresentable) around OutlineList.
+// ABOUTME: Supports hierarchical items, inline content, and chained modifiers.
 import SwiftUI
 import UIKit
 

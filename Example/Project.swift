@@ -1,3 +1,5 @@
+// ABOUTME: Tuist project manifest for the ListKitExample demo app.
+// ABOUTME: Declares a single iOS app target depending on ListKit and Lists.
 import ProjectDescription
 
 let project = Project(

@@ -1,3 +1,5 @@
+// ABOUTME: SwiftUI wrapper (UIViewRepresentable) around GroupedList.
+// ABOUTME: Supports sections, headers/footers, inline content, and chained modifiers.
 import SwiftUI
 import UIKit
 

@@ -1,3 +1,5 @@
+// ABOUTME: Tests verifying SnapshotBuilder DSL produces identical snapshots to manual construction.
+// ABOUTME: Covers conditionals, loops, Identifiable view models, and diff equivalence.
 import Foundation
 import Testing
 @testable import ListKit

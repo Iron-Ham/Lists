@@ -1,3 +1,6 @@
+// ABOUTME: Hierarchical parent-child snapshot for outline-style lists within a section.
+// ABOUTME: Tracks expansion state and computes visible items via depth-first traversal.
+
 /// A hierarchical snapshot representing the items within a single section.
 ///
 /// Use a section snapshot to model parent–child relationships for outline-style lists.

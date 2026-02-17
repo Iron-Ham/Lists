@@ -1,3 +1,5 @@
+// ABOUTME: Tests that SectionedDiff produces changesets safe for UICollectionView batch updates.
+// ABOUTME: Validates index ordering, deduplication, and section/item operation consistency.
 import Foundation
 import Testing
 @testable import ListKit

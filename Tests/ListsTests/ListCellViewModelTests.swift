@@ -1,3 +1,5 @@
+// ABOUTME: Tests for ListCellViewModel protocol and setListContent cell configuration helpers.
+// ABOUTME: Also tests SwiftUI view modifiers for SimpleListView, GroupedListView, OutlineListView.
 import Testing
 import UIKit
 @testable import Lists

@@ -1,3 +1,5 @@
+// ABOUTME: Shared test fixtures: TextItem (UUID-based) and NumberItem (value-based) CellViewModels.
+// ABOUTME: Used across ListsTests for snapshot, DSL, and configuration testing.
 import UIKit
 @testable import Lists
 

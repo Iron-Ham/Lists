@@ -1,3 +1,5 @@
+// ABOUTME: Convenience methods on UICollectionViewListCell for content configuration.
+// ABOUTME: Provides setListContent helpers to reduce boilerplate cell setup code.
 import UIKit
 
 extension UICollectionViewListCell {

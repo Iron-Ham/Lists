@@ -1,3 +1,5 @@
+// ABOUTME: Tests for ContentEquatable protocol and auto-reconfigure behavior on data sources.
+// ABOUTME: Validates type-erased content equality and AnyItem content change detection.
 import Testing
 import UIKit
 @testable import ListKit

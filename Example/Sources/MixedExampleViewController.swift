@@ -1,3 +1,5 @@
+// ABOUTME: Mixed cell types demo using MixedListDataSource with heterogeneous ViewModels.
+// ABOUTME: Combines BannerItem, ProductItem, and RatingItem in separate sections.
 import ListKit
 import Lists
 import UIKit

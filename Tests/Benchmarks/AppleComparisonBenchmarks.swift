@@ -1,3 +1,5 @@
+// ABOUTME: Head-to-head benchmarks comparing ListKit vs Apple's NSDiffableDataSourceSnapshot.
+// ABOUTME: Tests build, query, delete, and reload operations with strict timing assertions.
 import Foundation
 import ListKit
 import Testing

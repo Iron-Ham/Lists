@@ -1,3 +1,5 @@
+// ABOUTME: Single-section flat list configuration backed by UICollectionView.
+// ABOUTME: Simplest list type -- just provide items and handlers.
 import ListKit
 import UIKit
 

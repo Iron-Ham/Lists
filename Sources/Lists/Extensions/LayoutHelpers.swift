@@ -1,3 +1,5 @@
+// ABOUTME: Factory methods for UICollectionViewCompositionalLayout list configs.
+// ABOUTME: Provides plain, grouped, insetGrouped, sidebar, and sidebarPlain layouts.
 import UIKit
 
 /// Factory methods for common `UICollectionViewCompositionalLayout` list configurations.
