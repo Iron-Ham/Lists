@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Realistic UUID-based benchmarks comparing ListKit vs Apple using the `Item.ID` pattern with `Identifiable` model types
+
+### Fixed
+
+- `speedup()` benchmark helper now correctly handles durations >= 1 second (previously ignored the `seconds` component)
+
 ## [0.6.0] - 2026-02-16
 
 ### Added
