@@ -101,6 +101,16 @@ All benchmarks run in **Release configuration** with median-of-15 and 5 warmup i
 | Reload 5k items | 0.099 ms | 1.547 ms | **15.7x** |
 | Query itemIdentifiers 100x | 0.051 ms | 46.364 ms | **908.3x** |
 
+#### With struct items (ID-only hashing)
+
+Real-world items typically hash by ID only, not all fields. These benchmarks use a struct with `hash(into:)` and `==` that only consider the `id` property — the pattern used by most apps.
+
+| Operation | ListKit | Apple | Speedup |
+|:---|---:|---:|---:|
+| Build 10k struct items | 0.003 ms | 2.775 ms | **900.2x** |
+| Delete 5k struct items | 1.426 ms | 4.957 ms | **3.5x** |
+| Reload 5k struct items | 0.213 ms | 3.685 ms | **17.3x** |
+
 ListKit snapshots are pure Swift value types with flat array storage and a lazy reverse index. Apple's `NSDiffableDataSourceSnapshot` is backed by Objective-C runtime overhead and per-query hashing.
 
 ### vs IGListKit (Instagram)
