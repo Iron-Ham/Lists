@@ -135,6 +135,59 @@ struct BenchmarkReport {
     } }
     log("| Query itemIdentifiers 100x | \(ms(lkQ)) ms | \(ms(apQ)) ms | **\(speedup(lkQ, apQ))** |")
 
+    // Struct-based benchmarks (ID-only hashing)
+    log("")
+    log("#### With struct items (ID-only hashing)")
+    log("")
+    log("| Operation | ListKit | Apple | Speedup |")
+    log("|:---|---:|---:|---:|")
+
+    // Build 10k struct items
+    let structItems10k = (0 ..< 10000).map { BenchItem(id: $0, value: $0 * 7) }
+    let lkStruct10k = benchmark {
+      var s = DiffableDataSourceSnapshot<String, BenchItem>()
+      s.appendSections(["main"])
+      s.appendItems(structItems10k, toSection: "main")
+    }
+    let apStruct10k = benchmark {
+      var s = NSDiffableDataSourceSnapshot<String, BenchItem>()
+      s.appendSections(["main"])
+      s.appendItems(structItems10k, toSection: "main")
+    }
+    log("| Build 10k struct items | \(ms(lkStruct10k)) ms | \(ms(apStruct10k)) ms | **\(speedup(lkStruct10k, apStruct10k))** |")
+
+    // Delete 5k struct items from 10k
+    let structDelTarget = (0 ..< 5000).map { BenchItem(id: $0, value: $0 * 7) }
+    let lkStructDel = benchmark {
+      var s = DiffableDataSourceSnapshot<String, BenchItem>()
+      s.appendSections(["main"])
+      s.appendItems(structItems10k, toSection: "main")
+      s.deleteItems(structDelTarget)
+    }
+    let apStructDel = benchmark {
+      var s = NSDiffableDataSourceSnapshot<String, BenchItem>()
+      s.appendSections(["main"])
+      s.appendItems(structItems10k, toSection: "main")
+      s.deleteItems(structDelTarget)
+    }
+    log("| Delete 5k struct items | \(ms(lkStructDel)) ms | \(ms(apStructDel)) ms | **\(speedup(lkStructDel, apStructDel))** |")
+
+    // Reload 5k struct items
+    let structRlTarget = (0 ..< 5000).map { BenchItem(id: $0, value: $0 * 7) }
+    let lkStructRl = benchmark {
+      var s = DiffableDataSourceSnapshot<String, BenchItem>()
+      s.appendSections(["main"])
+      s.appendItems(structItems10k, toSection: "main")
+      s.reloadItems(structRlTarget)
+    }
+    let apStructRl = benchmark {
+      var s = NSDiffableDataSourceSnapshot<String, BenchItem>()
+      s.appendSections(["main"])
+      s.appendItems(structItems10k, toSection: "main")
+      s.reloadItems(structRlTarget)
+    }
+    log("| Reload 5k struct items | \(ms(lkStructRl)) ms | \(ms(apStructRl)) ms | **\(speedup(lkStructRl, apStructRl))** |")
+
     let output = lines.joined(separator: "\n")
     let path = "/tmp/listkit_benchmark_results.txt"
     try output.write(toFile: path, atomically: true, encoding: .utf8)

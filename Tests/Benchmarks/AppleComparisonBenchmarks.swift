@@ -5,6 +5,26 @@ import ListKit
 import Testing
 import UIKit
 
+// MARK: - BenchItem
+
+/// A realistic item type where identity is based on `id` only, not content fields.
+/// This mirrors real-world usage where items have stable identifiers and mutable content.
+struct BenchItem: Hashable, Sendable {
+  let id: Int
+  let value: Int
+
+  static func ==(lhs: BenchItem, rhs: BenchItem) -> Bool {
+    lhs.id == rhs.id
+  }
+
+  func hash(into hasher: inout Hasher) {
+    hasher.combine(id)
+  }
+
+}
+
+// MARK: - AppleComparisonBenchmarks
+
 /// ListKit vs Apple's NSDiffableDataSourceSnapshot — head-to-head comparisons.
 ///
 /// Every test uses strict `listKitTime < appleTime`. No margins, no faking.
@@ -247,6 +267,109 @@ struct AppleComparisonBenchmarks {
     #expect(
       listKitTime < appleTime,
       "ListKit (\(ms(listKitTime))) should be faster than Apple (\(ms(appleTime))) for building two 10k snapshots"
+    )
+  }
+
+  @Test
+  func structSnapshotBuild10kItems() {
+    let items = (0 ..< 10000).map { BenchItem(id: $0, value: $0 * 7) }
+
+    let listKitTime = benchmark {
+      var snapshot = DiffableDataSourceSnapshot<String, BenchItem>()
+      snapshot.appendSections(["main"])
+      snapshot.appendItems(items, toSection: "main")
+    }
+
+    let appleTime = benchmark {
+      var snapshot = NSDiffableDataSourceSnapshot<String, BenchItem>()
+      snapshot.appendSections(["main"])
+      snapshot.appendItems(items, toSection: "main")
+    }
+
+    #expect(
+      listKitTime < appleTime,
+      "ListKit (\(ms(listKitTime))) should be faster than Apple (\(ms(appleTime))) for 10k struct item build"
+    )
+  }
+
+  @Test
+  func structDeleteItems() {
+    let items = (0 ..< 10000).map { BenchItem(id: $0, value: $0 * 7) }
+    let itemsToDelete = (0 ..< 5000).map { BenchItem(id: $0, value: $0 * 7) }
+
+    let listKitTime = benchmark {
+      var snapshot = DiffableDataSourceSnapshot<String, BenchItem>()
+      snapshot.appendSections(["main"])
+      snapshot.appendItems(items, toSection: "main")
+      snapshot.deleteItems(itemsToDelete)
+    }
+
+    let appleTime = benchmark {
+      var snapshot = NSDiffableDataSourceSnapshot<String, BenchItem>()
+      snapshot.appendSections(["main"])
+      snapshot.appendItems(items, toSection: "main")
+      snapshot.deleteItems(itemsToDelete)
+    }
+
+    #expect(
+      listKitTime < appleTime,
+      "ListKit (\(ms(listKitTime))) should be faster than Apple (\(ms(appleTime))) for deleting 5k struct items"
+    )
+  }
+
+  @Test
+  func structReloadItems() {
+    let items = (0 ..< 10000).map { BenchItem(id: $0, value: $0 * 7) }
+    let itemsToReload = (0 ..< 5000).map { BenchItem(id: $0, value: $0 * 7) }
+
+    let listKitTime = benchmark {
+      var snapshot = DiffableDataSourceSnapshot<String, BenchItem>()
+      snapshot.appendSections(["main"])
+      snapshot.appendItems(items, toSection: "main")
+      snapshot.reloadItems(itemsToReload)
+    }
+
+    let appleTime = benchmark {
+      var snapshot = NSDiffableDataSourceSnapshot<String, BenchItem>()
+      snapshot.appendSections(["main"])
+      snapshot.appendItems(items, toSection: "main")
+      snapshot.reloadItems(itemsToReload)
+    }
+
+    #expect(
+      listKitTime < appleTime,
+      "ListKit (\(ms(listKitTime))) should be faster than Apple (\(ms(appleTime))) for reloading 5k struct items"
+    )
+  }
+
+  @Test
+  func structBuildTwoSnapshotsForDiff() {
+    let oldItems = (0 ..< 10000).map { BenchItem(id: $0, value: $0 * 7) }
+    let newItems = (5000 ..< 15000).map { BenchItem(id: $0, value: $0 * 13) }
+
+    let listKitTime = benchmark {
+      var old = DiffableDataSourceSnapshot<String, BenchItem>()
+      old.appendSections(["main"])
+      old.appendItems(oldItems, toSection: "main")
+
+      var new = DiffableDataSourceSnapshot<String, BenchItem>()
+      new.appendSections(["main"])
+      new.appendItems(newItems, toSection: "main")
+    }
+
+    let appleTime = benchmark {
+      var old = NSDiffableDataSourceSnapshot<String, BenchItem>()
+      old.appendSections(["main"])
+      old.appendItems(oldItems, toSection: "main")
+
+      var new = NSDiffableDataSourceSnapshot<String, BenchItem>()
+      new.appendSections(["main"])
+      new.appendItems(newItems, toSection: "main")
+    }
+
+    #expect(
+      listKitTime < appleTime,
+      "ListKit (\(ms(listKitTime))) should be faster than Apple (\(ms(appleTime))) for building two 10k struct snapshots"
     )
   }
 }
