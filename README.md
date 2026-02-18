@@ -146,7 +146,7 @@ Real-world list updates rarely involve just one type of change. A feed refresh m
 | 10k — heavy churn | 4.359 ms | 0.007 ms | **627x** |
 | 50k — moderate churn | 22.816 ms | 0.022 ms | **1,049x** |
 
-ListKit's full pipeline (snapshot build + diff) for 10k items with moderate churn completes in **3.8 ms** — faster than Apple takes to just *build* the snapshots.
+ListKit's full pipeline (snapshot build + diff) for 10k items with moderate churn completes faster than Apple takes to just *build* the snapshots.
 
 #### Data Source Apply — ListKit vs Apple (Item.ID)
 
