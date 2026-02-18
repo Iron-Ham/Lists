@@ -56,6 +56,16 @@ Any change that could affect performance **must**:
 
 Do not merge changes that regress benchmark numbers without explicit approval.
 
+## Background Diff Offloading
+
+`performApply()` uses a threshold-based branch for diff computation:
+- **< 1,000 items**: Diff runs inline on the main thread (avoids thread-hop overhead)
+- **≥ 1,000 items**: Diff runs on a background thread via `Task.detached(priority: .userInitiated)`
+
+This is safe because snapshots and changesets are all `Sendable` value types, and `SectionedDiff.diff()` is a pure static function. The `applyTask` serialization chain still works: `performApply()` awaits the detached task before applying UIKit mutations, so the next queued apply waits on it. A post-diff `guard !Task.isCancelled` check handles cancellations that occurred during the background diff window.
+
+The threshold constant is `backgroundDiffThreshold` (a computed property on the data source). It uses `max(old.numberOfItems, new.numberOfItems)` to account for shrinking lists (e.g., 5k→10 items).
+
 ## When Modifying This Module
 
 - Changes to the diff algorithm must not break `StagedChangeset` output ordering
