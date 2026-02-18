@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Realistic UUID-based benchmarks comparing ListKit vs Apple using the `Item.ID` pattern with `Identifiable` model types
+- Mixed operations benchmarks testing inserts + deletes + moves simultaneously across ListKit, Apple, and IGListKit
+- Data source `apply()` benchmarks measuring the full end-to-end pipeline (diff + `performBatchUpdates`) for ListKit vs Apple
 
 ### Fixed
 
