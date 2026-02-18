@@ -23,7 +23,7 @@ A fast, pure-Swift diffable data source for `UICollectionView`. Drop-in replacem
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/Iron-Ham/ListKit", from: "0.5.0"),
+    .package(url: "https://github.com/Iron-Ham/ListKit", from: "0.6.1"),
 ]
 ```
 
