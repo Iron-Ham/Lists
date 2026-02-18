@@ -126,6 +126,39 @@ Both libraries implement Paul Heckel's O(n) diff. IGListKit's is Objective-C++; 
 
 Per-section diffing skips unchanged sections entirely — the common case for incremental UI updates.
 
+### Mixed Operations (Inserts + Deletes + Moves)
+
+Real-world list updates rarely involve just one type of change. A feed refresh might delete stale items, insert new ones, and re-rank existing items — all at once. These benchmarks combine all three operations in a single diff using `Item.ID` (UUID) identifiers. "Moderate churn" changes 20% of items per operation type; "heavy churn" changes 50%.
+
+#### Diff Algorithm — ListKit vs IGListKit
+
+| Scenario | IGListKit | ListKit | Speedup |
+|:---|---:|---:|---:|
+| 10k — moderate churn | 10.6 ms | 3.3 ms | **3.2x** |
+| 10k — heavy churn | 11.4 ms | 3.9 ms | **2.9x** |
+| 50k — moderate churn | 52.0 ms | 16.7 ms | **3.1x** |
+
+#### Snapshot Build — ListKit vs Apple (Item.ID)
+
+| Scenario | Apple | ListKit | Speedup |
+|:---|---:|---:|---:|
+| 10k — moderate churn | 4.238 ms | 0.005 ms | **782x** |
+| 10k — heavy churn | 4.359 ms | 0.007 ms | **627x** |
+| 50k — moderate churn | 22.816 ms | 0.022 ms | **1,049x** |
+
+ListKit's full pipeline (snapshot build + diff) for 10k items with moderate churn completes in **3.8 ms** — faster than Apple takes to just *build* the snapshots.
+
+#### Data Source Apply — ListKit vs Apple (Item.ID)
+
+The ultimate end-to-end test: `apply()` on a real `UICollectionViewDiffableDataSource`, which includes the diff computation, `performBatchUpdates`, and all UIKit bookkeeping. Apple's diff algorithm is internal and can't be benchmarked in isolation — this is the only way to measure it.
+
+| Scenario | Apple | ListKit | Speedup |
+|:---|---:|---:|---:|
+| 10k — moderate churn | 11.9 ms | 8.7 ms | **1.4x** |
+| 10k — heavy churn | 23.5 ms | 14.2 ms | **1.7x** |
+
+The speedup is smaller here than in isolated benchmarks because both frameworks share the same `UICollectionView` overhead (batch updates, layout invalidation). The diff advantage matters most at scale: Apple's heavy-churn apply exceeds the 16 ms frame budget, while ListKit stays under.
+
 ### vs ReactiveCollectionsKit
 
 ReactiveCollectionsKit wraps Apple's `NSDiffableDataSourceSnapshot` with type-erased `CollectionViewModel` layers. These benchmarks compare model construction (building the data structures each library needs before applying to a collection view).
