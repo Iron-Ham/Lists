@@ -395,6 +395,90 @@ struct DataSourceLifecycleTests {
     #expect(result.numberOfSections >= 1)
   }
 
+  /// Applying a snapshot with >1,000 items should trigger the background diff path
+  /// and produce the same final state as an inline diff.
+  @Test
+  func backgroundDiffProducesCorrectState() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    // Apply initial snapshot with 1,500 items
+    var snap1 = DiffableDataSourceSnapshot<String, Int>()
+    snap1.appendSections(["A"])
+    snap1.appendItems(Array(0 ..< 1_500), toSection: "A")
+    await ds.apply(snap1, animatingDifferences: false)
+
+    // Apply a second snapshot with 50% overlap (750 shared, 750 new)
+    var snap2 = DiffableDataSourceSnapshot<String, Int>()
+    snap2.appendSections(["A"])
+    snap2.appendItems(Array(750 ..< 2_250), toSection: "A")
+    await ds.apply(snap2, animatingDifferences: false)
+
+    let result = ds.snapshot()
+    #expect(result.sectionIdentifiers == ["A"])
+    #expect(result.numberOfItems == 1_500)
+    #expect(result.itemIdentifiers == Array(750 ..< 2_250))
+  }
+
+  /// Cancelling a large apply mid-flight should not corrupt state.
+  @Test
+  func cancelledLargeApplyDoesNotCorruptState() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    // Establish baseline state with >1,000 items
+    var initial = DiffableDataSourceSnapshot<String, Int>()
+    initial.appendSections(["A"])
+    initial.appendItems(Array(0 ..< 2_000), toSection: "A")
+    await ds.apply(initial, animatingDifferences: false)
+
+    // Fire a large apply and immediately cancel it
+    var cancelled = DiffableDataSourceSnapshot<String, Int>()
+    cancelled.appendSections(["cancelled"])
+    cancelled.appendItems(Array(0 ..< 2_000), toSection: "cancelled")
+
+    let task = Task {
+      await ds.apply(cancelled, animatingDifferences: false)
+    }
+    task.cancel()
+    await task.value
+
+    // Apply a known-good final snapshot
+    var final = DiffableDataSourceSnapshot<String, Int>()
+    final.appendSections(["B"])
+    final.appendItems([1, 2, 3], toSection: "B")
+    await ds.apply(final, animatingDifferences: false)
+
+    let result = ds.snapshot()
+    #expect(result.sectionIdentifiers == ["B"])
+    #expect(result.itemIdentifiers == [1, 2, 3])
+  }
+
+  /// Multiple rapid large (>1,000 item) applies should serialize correctly.
+  @Test
+  func rapidLargeAppliesSerializeCorrectly() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    // Fire 3 large applies via completion handler without awaiting
+    for i in 1 ... 3 {
+      var snapshot = DiffableDataSourceSnapshot<String, Int>()
+      snapshot.appendSections(["S\(i)"])
+      snapshot.appendItems(Array(0 ..< 1_500), toSection: "S\(i)")
+      ds.apply(snapshot, animatingDifferences: false, completion: nil)
+    }
+
+    // Await a terminal apply — forces all queued applies to drain
+    var terminal = DiffableDataSourceSnapshot<String, Int>()
+    terminal.appendSections(["final"])
+    terminal.appendItems(Array(0 ..< 1_500), toSection: "final")
+    await ds.apply(terminal, animatingDifferences: false)
+
+    let result = ds.snapshot()
+    #expect(result.sectionIdentifiers == ["final"])
+    #expect(result.numberOfItems == 1_500)
+  }
+
   // MARK: Private
 
   private func makeCollectionView() -> UICollectionView {

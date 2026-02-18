@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `CollectionViewDiffableDataSource.performApply()` now offloads diff computation to a background thread for snapshots with ≥1,000 items, keeping the main thread free during large dataset updates
+
 ### Added
 
 - Realistic UUID-based benchmarks comparing ListKit vs Apple using the `Item.ID` pattern with `Identifiable` model types

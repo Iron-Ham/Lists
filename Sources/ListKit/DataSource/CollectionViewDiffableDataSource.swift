@@ -250,6 +250,13 @@ public final class CollectionViewDiffableDataSource<
 
   // MARK: Private
 
+  /// Item count threshold above which diff computation is offloaded to a
+  /// background thread via `Task.detached`. Below this threshold, diffing
+  /// runs inline to avoid thread-hop overhead.
+  private static var backgroundDiffThreshold: Int {
+    1_000
+  }
+
   private weak var collectionView: UICollectionView?
   private let cellProvider: CellProvider
   private var currentSnapshot = DiffableDataSourceSnapshot<SectionIdentifierType, ItemIdentifierType>()
@@ -269,10 +276,23 @@ public final class CollectionViewDiffableDataSource<
 
     guard let collectionView else { return }
 
-    let changeset = SectionedDiff.diff(
-      old: oldSnapshot,
-      new: snapshot
-    )
+    let itemCount = max(oldSnapshot.numberOfItems, snapshot.numberOfItems)
+    let changeset: StagedChangeset<SectionIdentifierType, ItemIdentifierType>
+
+    if itemCount >= Self.backgroundDiffThreshold {
+      let old = oldSnapshot
+      let new = snapshot
+      changeset = await Task.detached(priority: .userInitiated) {
+        SectionedDiff.diff(old: old, new: new)
+      }.value
+    } else {
+      changeset = SectionedDiff.diff(old: oldSnapshot, new: snapshot)
+    }
+
+    guard !Task.isCancelled else {
+      currentSnapshot = oldSnapshot
+      return
+    }
 
     // No structural changes — skip UI update entirely
     if changeset.isEmpty {
