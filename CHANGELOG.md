@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed `CollectionViewDiffableDataSource.performApply()` to keep data source counts in the pre-update state until animated batch updates begin, preventing `UICollectionView` "Invalid batch updates detected..." and "attempt to delete item ... before the update" crashes caused by before/after state mismatch.
+
 ## [0.6.1] - 2026-02-18
 
 ### Changed

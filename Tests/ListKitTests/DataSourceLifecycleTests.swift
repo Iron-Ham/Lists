@@ -479,6 +479,52 @@ struct DataSourceLifecycleTests {
     #expect(result.numberOfItems == 1_500)
   }
 
+  /// Animated structural inserts must keep old counts visible before the batch
+  /// transaction starts, then expose new counts by the end of the transaction.
+  @Test
+  func animatedApplyInsertUsesOldThenNewDataSourceCounts() async {
+    let cv = makeInstrumentedCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    var initial = DiffableDataSourceSnapshot<String, Int>()
+    initial.appendSections(["A"])
+    initial.appendItems(Array(0 ..< 74), toSection: "A")
+    await ds.applySnapshotUsingReloadData(initial)
+
+    var updated = DiffableDataSourceSnapshot<String, Int>()
+    updated.appendSections(["A"])
+    updated.appendItems(Array(0 ..< 98), toSection: "A")
+    await ds.apply(updated, animatingDifferences: true)
+
+    #expect(cv.observedBeforeItemCount == 74)
+    #expect(cv.observedAfterItemCount == 98)
+    #expect(!cv.recordedItemInserts.isEmpty)
+    #expect(cv.recordedItemDeletes.isEmpty)
+  }
+
+  /// Animated structural deletes must keep old counts visible before the batch
+  /// transaction starts, then expose new counts by the end of the transaction.
+  @Test
+  func animatedApplyDeleteUsesOldThenNewDataSourceCounts() async {
+    let cv = makeInstrumentedCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    var initial = DiffableDataSourceSnapshot<String, Int>()
+    initial.appendSections(["A"])
+    initial.appendItems(Array(0 ..< 74), toSection: "A")
+    await ds.applySnapshotUsingReloadData(initial)
+
+    var updated = DiffableDataSourceSnapshot<String, Int>()
+    updated.appendSections(["A"])
+    updated.appendItems(Array(0 ..< 50), toSection: "A")
+    await ds.apply(updated, animatingDifferences: true)
+
+    #expect(cv.observedBeforeItemCount == 74)
+    #expect(cv.observedAfterItemCount == 50)
+    #expect(cv.recordedItemInserts.isEmpty)
+    #expect(!cv.recordedItemDeletes.isEmpty)
+  }
+
   // MARK: Private
 
   private func makeCollectionView() -> UICollectionView {
@@ -488,11 +534,44 @@ struct DataSourceLifecycleTests {
     return cv
   }
 
+  private func makeInstrumentedCollectionView() -> InstrumentedCollectionView {
+    let layout = UICollectionViewFlowLayout()
+    let cv = InstrumentedCollectionView(frame: CGRect(x: 0, y: 0, width: 320, height: 480), collectionViewLayout: layout)
+    cv.register(UICollectionViewCell.self, forCellWithReuseIdentifier: "cell")
+    return cv
+  }
+
   private func makeDataSource(
     collectionView: UICollectionView
   ) -> CollectionViewDiffableDataSource<String, Int> {
     CollectionViewDiffableDataSource(collectionView: collectionView) { cv, indexPath, _ in
       cv.dequeueReusableCell(withReuseIdentifier: "cell", for: indexPath)
+    }
+  }
+
+  private final class InstrumentedCollectionView: UICollectionView {
+    var observedAfterItemCount: Int?
+    var observedBeforeItemCount: Int?
+    var recordedItemDeletes = [IndexPath]()
+    var recordedItemInserts = [IndexPath]()
+
+    override func performBatchUpdates(_ updates: (() -> Void)?, completion: ((Bool) -> Void)? = nil) {
+      if let dataSource {
+        observedBeforeItemCount = dataSource.collectionView(self, numberOfItemsInSection: 0)
+      }
+      updates?()
+      if let dataSource {
+        observedAfterItemCount = dataSource.collectionView(self, numberOfItemsInSection: 0)
+      }
+      completion?(true)
+    }
+
+    override func deleteItems(at indexPaths: [IndexPath]) {
+      recordedItemDeletes.append(contentsOf: indexPaths)
+    }
+
+    override func insertItems(at indexPaths: [IndexPath]) {
+      recordedItemInserts.append(contentsOf: indexPaths)
     }
   }
 

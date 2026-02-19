@@ -272,9 +272,10 @@ public final class CollectionViewDiffableDataSource<
     animatingDifferences: Bool
   ) async {
     let oldSnapshot = currentSnapshot
-    currentSnapshot = snapshot
-
-    guard let collectionView else { return }
+    guard let collectionView else {
+      currentSnapshot = snapshot
+      return
+    }
 
     let itemCount = max(oldSnapshot.numberOfItems, snapshot.numberOfItems)
     let changeset: StagedChangeset<SectionIdentifierType, ItemIdentifierType>
@@ -289,17 +290,16 @@ public final class CollectionViewDiffableDataSource<
       changeset = SectionedDiff.diff(old: oldSnapshot, new: snapshot)
     }
 
-    guard !Task.isCancelled else {
-      currentSnapshot = oldSnapshot
-      return
-    }
+    guard !Task.isCancelled else { return }
 
     // No structural changes — skip UI update entirely
     if changeset.isEmpty {
+      currentSnapshot = snapshot
       return
     }
 
     if !animatingDifferences {
+      currentSnapshot = snapshot
       collectionView.reloadData()
       return
     }
@@ -307,6 +307,7 @@ public final class CollectionViewDiffableDataSource<
     // Fast path: only reloads/reconfigures, no structural changes.
     // Skip performBatchUpdates entirely — apply directly without the batch overhead.
     if !changeset.hasStructuralChanges {
+      currentSnapshot = snapshot
       if !changeset.sectionReloads.isEmpty {
         collectionView.reloadSections(changeset.sectionReloads)
       }
@@ -321,6 +322,11 @@ public final class CollectionViewDiffableDataSource<
 
     await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
       collectionView.performBatchUpdates {
+        // Keep the old snapshot visible until the batch transaction starts.
+        // Once inside the update block, transition to the new snapshot so UIKit's
+        // post-update validation reads after-state counts from the data source.
+        currentSnapshot = snapshot
+
         // Deletes (old indices)
         if !changeset.sectionDeletes.isEmpty {
           collectionView.deleteSections(changeset.sectionDeletes)
