@@ -454,6 +454,147 @@ struct DataSourceLifecycleTests {
     #expect(result.itemIdentifiers == [1, 2, 3])
   }
 
+  /// Animated apply with pure inserts (no deletes) must not throw
+  /// NSInternalInconsistencyException. Regression test for #54 — UIKit validates
+  /// `pre_count + inserts - deletes == post_count` inside performBatchUpdates.
+  /// If currentSnapshot is advanced before the batch block, UIKit reads the new
+  /// count for both pre and post, causing the arithmetic to fail.
+  @Test
+  func animatedApplyWithPureInsertsDoesNotCrash() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    // Seed with initial items
+    var initial = DiffableDataSourceSnapshot<String, Int>()
+    initial.appendSections(["A"])
+    initial.appendItems(Array(0 ..< 50), toSection: "A")
+    await ds.applySnapshotUsingReloadData(initial)
+
+    // Apply a superset — pure inserts, no deletes
+    var expanded = DiffableDataSourceSnapshot<String, Int>()
+    expanded.appendSections(["A"])
+    expanded.appendItems(Array(0 ..< 74), toSection: "A")
+    await ds.apply(expanded, animatingDifferences: true)
+
+    let result = ds.snapshot()
+    #expect(result.numberOfItems == 74)
+    #expect(result.itemIdentifiers == Array(0 ..< 74))
+  }
+
+  /// Animated apply from an empty snapshot to a populated one (all inserts).
+  @Test
+  func animatedApplyFromEmptyToPopulated() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    // Start with an empty section
+    var empty = DiffableDataSourceSnapshot<String, Int>()
+    empty.appendSections(["A"])
+    await ds.applySnapshotUsingReloadData(empty)
+
+    // All items are inserts
+    var populated = DiffableDataSourceSnapshot<String, Int>()
+    populated.appendSections(["A"])
+    populated.appendItems(Array(1 ... 30), toSection: "A")
+    await ds.apply(populated, animatingDifferences: true)
+
+    let result = ds.snapshot()
+    #expect(result.numberOfItems == 30)
+  }
+
+  /// Animated apply with inserts in one section and deletes in another
+  /// exercises the structural batch path with mixed per-section operations.
+  @Test
+  func animatedApplyWithMixedInsertDeleteAcrossSections() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    var initial = DiffableDataSourceSnapshot<String, Int>()
+    initial.appendSections(["A", "B"])
+    initial.appendItems([1, 2, 3], toSection: "A")
+    initial.appendItems([10, 20, 30, 40], toSection: "B")
+    await ds.applySnapshotUsingReloadData(initial)
+
+    // Section A: pure inserts (3 → 6), Section B: pure deletes (4 → 2)
+    var mixed = DiffableDataSourceSnapshot<String, Int>()
+    mixed.appendSections(["A", "B"])
+    mixed.appendItems([1, 2, 3, 4, 5, 6], toSection: "A")
+    mixed.appendItems([10, 30], toSection: "B")
+    await ds.apply(mixed, animatingDifferences: true)
+
+    let result = ds.snapshot()
+    #expect(result.itemIdentifiers(inSection: "A") == [1, 2, 3, 4, 5, 6])
+    #expect(result.itemIdentifiers(inSection: "B") == [10, 30])
+  }
+
+  /// Animated apply with pure deletes (no inserts) must not throw
+  /// NSInternalInconsistencyException. Symmetric counterpart to the pure-insert test.
+  @Test
+  func animatedApplyWithPureDeletesDoesNotCrash() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    var initial = DiffableDataSourceSnapshot<String, Int>()
+    initial.appendSections(["A"])
+    initial.appendItems(Array(0 ..< 50), toSection: "A")
+    await ds.applySnapshotUsingReloadData(initial)
+
+    // Remove half the items — pure deletes, no inserts
+    var shrunk = DiffableDataSourceSnapshot<String, Int>()
+    shrunk.appendSections(["A"])
+    shrunk.appendItems(Array(0 ..< 25), toSection: "A")
+    await ds.apply(shrunk, animatingDifferences: true)
+
+    let result = ds.snapshot()
+    #expect(result.numberOfItems == 25)
+    #expect(result.itemIdentifiers == Array(0 ..< 25))
+  }
+
+  /// Animated apply from a populated snapshot to an empty section (all deletes).
+  @Test
+  func animatedApplyFromPopulatedToEmpty() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    var initial = DiffableDataSourceSnapshot<String, Int>()
+    initial.appendSections(["A"])
+    initial.appendItems(Array(1 ... 30), toSection: "A")
+    await ds.applySnapshotUsingReloadData(initial)
+
+    // Delete all items, keep section
+    var empty = DiffableDataSourceSnapshot<String, Int>()
+    empty.appendSections(["A"])
+    await ds.apply(empty, animatingDifferences: true)
+
+    let result = ds.snapshot()
+    #expect(result.numberOfItems == 0)
+    #expect(result.sectionIdentifiers == ["A"])
+  }
+
+  /// Animated apply with pure deletes across multiple sections.
+  @Test
+  func animatedApplyWithPureDeletesAcrossSections() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    var initial = DiffableDataSourceSnapshot<String, Int>()
+    initial.appendSections(["A", "B"])
+    initial.appendItems([1, 2, 3, 4, 5], toSection: "A")
+    initial.appendItems([10, 20, 30, 40], toSection: "B")
+    await ds.applySnapshotUsingReloadData(initial)
+
+    // Delete items from both sections
+    var shrunk = DiffableDataSourceSnapshot<String, Int>()
+    shrunk.appendSections(["A", "B"])
+    shrunk.appendItems([1, 3], toSection: "A")
+    shrunk.appendItems([20], toSection: "B")
+    await ds.apply(shrunk, animatingDifferences: true)
+
+    let result = ds.snapshot()
+    #expect(result.itemIdentifiers(inSection: "A") == [1, 3])
+    #expect(result.itemIdentifiers(inSection: "B") == [20])
+  }
+
   /// Multiple rapid large (>1,000 item) applies should serialize correctly.
   @Test
   func rapidLargeAppliesSerializeCorrectly() async {
