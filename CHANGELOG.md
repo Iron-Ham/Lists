@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-02-19
+
+### Fixed
+
+- Fixed `NSInternalInconsistencyException` crash when applying snapshots with only inserts (no deletes) using animated differences — `currentSnapshot` is now updated inside the `performBatchUpdates` closure so UIKit sees correct pre/post item counts
+
+### Added
+
+- Animated apply regression tests covering pure inserts, pure deletes, empty↔populated transitions, and mixed cross-section operations
+
 ## [0.6.1] - 2026-02-18
 
 ### Changed
