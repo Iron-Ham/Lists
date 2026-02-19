@@ -267,14 +267,23 @@ public final class CollectionViewDiffableDataSource<
   private var applyTask: Task<Void, Never>?
 
   /// Core apply logic — called only from serialized public methods.
+  ///
+  /// `currentSnapshot` must remain at the old value until UIKit captures pre-update
+  /// counts inside `performBatchUpdates`. UIKit validates:
+  ///   `pre_count + inserts - deletes == post_count`
+  /// so we advance `currentSnapshot` inside the batch block (after mutations) for the
+  /// structural path, and immediately before the UI call for all other paths.
   private func performApply(
     _ snapshot: DiffableDataSourceSnapshot<SectionIdentifierType, ItemIdentifierType>,
     animatingDifferences: Bool
   ) async {
     let oldSnapshot = currentSnapshot
-    currentSnapshot = snapshot
 
-    guard let collectionView else { return }
+    guard let collectionView else {
+      // No UI to update — still advance the snapshot so future diffs are correct.
+      currentSnapshot = snapshot
+      return
+    }
 
     let itemCount = max(oldSnapshot.numberOfItems, snapshot.numberOfItems)
     let changeset: StagedChangeset<SectionIdentifierType, ItemIdentifierType>
@@ -290,16 +299,17 @@ public final class CollectionViewDiffableDataSource<
     }
 
     guard !Task.isCancelled else {
-      currentSnapshot = oldSnapshot
       return
     }
 
-    // No structural changes — skip UI update entirely
+    // No changes — still advance the snapshot (may differ in metadata).
     if changeset.isEmpty {
+      currentSnapshot = snapshot
       return
     }
 
     if !animatingDifferences {
+      currentSnapshot = snapshot
       collectionView.reloadData()
       return
     }
@@ -307,6 +317,7 @@ public final class CollectionViewDiffableDataSource<
     // Fast path: only reloads/reconfigures, no structural changes.
     // Skip performBatchUpdates entirely — apply directly without the batch overhead.
     if !changeset.hasStructuralChanges {
+      currentSnapshot = snapshot
       if !changeset.sectionReloads.isEmpty {
         collectionView.reloadSections(changeset.sectionReloads)
       }
@@ -344,6 +355,12 @@ public final class CollectionViewDiffableDataSource<
         for move in changeset.itemMoves {
           collectionView.moveItem(at: move.from, to: move.to)
         }
+
+        // Advance the snapshot INSIDE the batch block so UIKit sees old counts
+        // before the block and new counts after. Placing this before the block
+        // causes UIKit to read the new count for both pre and post, breaking its
+        // `pre_count + inserts - deletes == post_count` invariant.
+        self.currentSnapshot = snapshot
       } completion: { _ in
         // Reloads and reconfigures run after the batch completes, using new indices.
         // This matches Apple's NSDiffableDataSourceSnapshot behavior.
