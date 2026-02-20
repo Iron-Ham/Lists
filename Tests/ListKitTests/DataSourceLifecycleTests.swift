@@ -1,10 +1,10 @@
-// ABOUTME: Tests for data source lifecycle: serialization, cancellation, and deallocation safety.
-// ABOUTME: Validates rapid apply calls, empty snapshots, and reloadData interleaving.
+// ABOUTME: Tests for data source lifecycle, animated apply correctness, and serialization safety.
+// ABOUTME: Covers batch updates (section/item mutations), reload/reconfigure markers, and edge cases.
 import Testing
 import UIKit
 @testable import ListKit
 
-/// Tests for data source lifecycle, serialization, and edge cases.
+/// Tests for data source lifecycle, animated apply correctness, serialization, and edge cases.
 /// Inspired by IGListKit's IGListAdapterE2ETests.
 @MainActor
 struct DataSourceLifecycleTests {
@@ -618,6 +618,532 @@ struct DataSourceLifecycleTests {
     let result = ds.snapshot()
     #expect(result.sectionIdentifiers == ["final"])
     #expect(result.numberOfItems == 1_500)
+  }
+
+  /// Inserting a new section with items via animated apply.
+  @Test
+  func animatedApplyInsertingNewSectionWithItems() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    var initial = DiffableDataSourceSnapshot<String, Int>()
+    initial.appendSections(["A"])
+    initial.appendItems([1, 2, 3], toSection: "A")
+    await ds.applySnapshotUsingReloadData(initial)
+
+    var next = DiffableDataSourceSnapshot<String, Int>()
+    next.appendSections(["A", "B"])
+    next.appendItems([1, 2, 3], toSection: "A")
+    next.appendItems([10, 20], toSection: "B")
+    await ds.apply(next, animatingDifferences: true)
+
+    let result = ds.snapshot()
+    #expect(result.sectionIdentifiers == ["A", "B"])
+    #expect(result.itemIdentifiers(inSection: "A") == [1, 2, 3])
+    #expect(result.itemIdentifiers(inSection: "B") == [10, 20])
+    #expect(ds.numberOfSections(in: cv) == 2)
+    #expect(ds.collectionView(cv, numberOfItemsInSection: 0) == 3)
+    #expect(ds.collectionView(cv, numberOfItemsInSection: 1) == 2)
+  }
+
+  /// Deleting an existing section via animated apply.
+  @Test
+  func animatedApplyDeletingExistingSection() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    var initial = DiffableDataSourceSnapshot<String, Int>()
+    initial.appendSections(["A", "B"])
+    initial.appendItems([1, 2], toSection: "A")
+    initial.appendItems([10, 20, 30], toSection: "B")
+    await ds.applySnapshotUsingReloadData(initial)
+
+    var next = DiffableDataSourceSnapshot<String, Int>()
+    next.appendSections(["B"])
+    next.appendItems([10, 20, 30], toSection: "B")
+    await ds.apply(next, animatingDifferences: true)
+
+    let result = ds.snapshot()
+    #expect(result.sectionIdentifiers == ["B"])
+    #expect(result.itemIdentifiers == [10, 20, 30])
+    #expect(ds.numberOfSections(in: cv) == 1)
+    #expect(ds.collectionView(cv, numberOfItemsInSection: 0) == 3)
+  }
+
+  /// Moving sections via animated apply — reordering [A,B,C] → [C,B,A].
+  @Test
+  func animatedApplyMovingSections() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    var initial = DiffableDataSourceSnapshot<String, Int>()
+    initial.appendSections(["A", "B", "C"])
+    initial.appendItems([1], toSection: "A")
+    initial.appendItems([2], toSection: "B")
+    initial.appendItems([3], toSection: "C")
+    await ds.applySnapshotUsingReloadData(initial)
+
+    var next = DiffableDataSourceSnapshot<String, Int>()
+    next.appendSections(["C", "B", "A"])
+    next.appendItems([3], toSection: "C")
+    next.appendItems([2], toSection: "B")
+    next.appendItems([1], toSection: "A")
+    await ds.apply(next, animatingDifferences: true)
+
+    let result = ds.snapshot()
+    #expect(result.sectionIdentifiers == ["C", "B", "A"])
+    #expect(result.itemIdentifiers(inSection: "C") == [3])
+    #expect(result.itemIdentifiers(inSection: "B") == [2])
+    #expect(result.itemIdentifiers(inSection: "A") == [1])
+  }
+
+  /// Complete section replacement — all old sections removed, all new ones inserted.
+  @Test
+  func animatedApplyCompleteSectionReplacement() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    var initial = DiffableDataSourceSnapshot<String, Int>()
+    initial.appendSections(["A", "B"])
+    initial.appendItems([1, 2], toSection: "A")
+    initial.appendItems([3, 4], toSection: "B")
+    await ds.applySnapshotUsingReloadData(initial)
+
+    var next = DiffableDataSourceSnapshot<String, Int>()
+    next.appendSections(["X", "Y", "Z"])
+    next.appendItems([10], toSection: "X")
+    next.appendItems([20], toSection: "Y")
+    next.appendItems([30], toSection: "Z")
+    await ds.apply(next, animatingDifferences: true)
+
+    let result = ds.snapshot()
+    #expect(result.sectionIdentifiers == ["X", "Y", "Z"])
+    #expect(result.numberOfItems == 3)
+    #expect(ds.numberOfSections(in: cv) == 3)
+    #expect(ds.collectionView(cv, numberOfItemsInSection: 0) == 1)
+    #expect(ds.collectionView(cv, numberOfItemsInSection: 1) == 1)
+    #expect(ds.collectionView(cv, numberOfItemsInSection: 2) == 1)
+  }
+
+  /// Simultaneous section insert, delete, and move in one apply.
+  @Test
+  func animatedApplySimultaneousSectionInsertDeleteMove() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    var initial = DiffableDataSourceSnapshot<String, Int>()
+    initial.appendSections(["A", "B", "C"])
+    initial.appendItems([1], toSection: "A")
+    initial.appendItems([2], toSection: "B")
+    initial.appendItems([3], toSection: "C")
+    await ds.applySnapshotUsingReloadData(initial)
+
+    // Delete A, keep B, move C before B, insert D
+    var next = DiffableDataSourceSnapshot<String, Int>()
+    next.appendSections(["C", "B", "D"])
+    next.appendItems([3], toSection: "C")
+    next.appendItems([2], toSection: "B")
+    next.appendItems([4], toSection: "D")
+    await ds.apply(next, animatingDifferences: true)
+
+    let result = ds.snapshot()
+    #expect(result.sectionIdentifiers == ["C", "B", "D"])
+    #expect(result.itemIdentifiers == [3, 2, 4])
+  }
+
+  /// Within-section item reorder via animated apply.
+  @Test
+  func animatedApplyWithinSectionItemReorder() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    var initial = DiffableDataSourceSnapshot<String, Int>()
+    initial.appendSections(["A"])
+    initial.appendItems([1, 2, 3, 4, 5], toSection: "A")
+    await ds.applySnapshotUsingReloadData(initial)
+
+    var next = DiffableDataSourceSnapshot<String, Int>()
+    next.appendSections(["A"])
+    next.appendItems([5, 4, 3, 2, 1], toSection: "A")
+    await ds.apply(next, animatingDifferences: true)
+
+    let result = ds.snapshot()
+    #expect(result.itemIdentifiers == [5, 4, 3, 2, 1])
+    #expect(ds.collectionView(cv, numberOfItemsInSection: 0) == 5)
+  }
+
+  /// Moving an item between sections via animated apply.
+  @Test
+  func animatedApplyCrossSectionItemMove() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    var initial = DiffableDataSourceSnapshot<String, Int>()
+    initial.appendSections(["A", "B"])
+    initial.appendItems([1, 2, 3], toSection: "A")
+    initial.appendItems([10, 20], toSection: "B")
+    await ds.applySnapshotUsingReloadData(initial)
+
+    // Move item 2 from section A to section B
+    var next = DiffableDataSourceSnapshot<String, Int>()
+    next.appendSections(["A", "B"])
+    next.appendItems([1, 3], toSection: "A")
+    next.appendItems([10, 2, 20], toSection: "B")
+    await ds.apply(next, animatingDifferences: true)
+
+    let result = ds.snapshot()
+    #expect(result.itemIdentifiers(inSection: "A") == [1, 3])
+    #expect(result.itemIdentifiers(inSection: "B") == [10, 2, 20])
+  }
+
+  /// Item moves combined with inserts and deletes via animated apply.
+  @Test
+  func animatedApplyMovesWithInsertsAndDeletes() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    var initial = DiffableDataSourceSnapshot<String, Int>()
+    initial.appendSections(["A"])
+    initial.appendItems([1, 2, 3, 4, 5], toSection: "A")
+    await ds.applySnapshotUsingReloadData(initial)
+
+    // 5 moves to front, 2 deleted, 6 inserted
+    var next = DiffableDataSourceSnapshot<String, Int>()
+    next.appendSections(["A"])
+    next.appendItems([5, 1, 3, 4, 6], toSection: "A")
+    await ds.apply(next, animatingDifferences: true)
+
+    let result = ds.snapshot()
+    #expect(result.itemIdentifiers == [5, 1, 3, 4, 6])
+  }
+
+  /// Reload-only apply on a structurally identical snapshot routes to the fast path.
+  @Test
+  func animatedApplyReloadOnlyNoStructuralChanges() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    var initial = DiffableDataSourceSnapshot<String, Int>()
+    initial.appendSections(["A"])
+    initial.appendItems([1, 2, 3, 4, 5], toSection: "A")
+    await ds.applySnapshotUsingReloadData(initial)
+
+    // Same structure, with reload markers
+    var next = DiffableDataSourceSnapshot<String, Int>()
+    next.appendSections(["A"])
+    next.appendItems([1, 2, 3, 4, 5], toSection: "A")
+    next.reloadItems([1, 3])
+    await ds.apply(next, animatingDifferences: true)
+
+    let result = ds.snapshot()
+    #expect(result.itemIdentifiers == [1, 2, 3, 4, 5])
+    #expect(ds.numberOfSections(in: cv) == 1)
+    #expect(ds.collectionView(cv, numberOfItemsInSection: 0) == 5)
+  }
+
+  /// Reconfigure-only apply on a structurally identical snapshot routes to the fast path.
+  @Test
+  func animatedApplyReconfigureOnlyNoStructuralChanges() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    var initial = DiffableDataSourceSnapshot<String, Int>()
+    initial.appendSections(["A"])
+    initial.appendItems([1, 2, 3, 4], toSection: "A")
+    await ds.applySnapshotUsingReloadData(initial)
+
+    var next = DiffableDataSourceSnapshot<String, Int>()
+    next.appendSections(["A"])
+    next.appendItems([1, 2, 3, 4], toSection: "A")
+    next.reconfigureItems([1, 2, 3, 4])
+    await ds.apply(next, animatingDifferences: true)
+
+    let result = ds.snapshot()
+    #expect(result.itemIdentifiers == [1, 2, 3, 4])
+  }
+
+  /// Section-reload-only apply on a structurally identical snapshot routes to the fast path.
+  @Test
+  func animatedApplySectionReloadOnlyNoStructuralChanges() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    var initial = DiffableDataSourceSnapshot<String, Int>()
+    initial.appendSections(["A", "B"])
+    initial.appendItems([1, 2], toSection: "A")
+    initial.appendItems([3, 4], toSection: "B")
+    await ds.applySnapshotUsingReloadData(initial)
+
+    var next = DiffableDataSourceSnapshot<String, Int>()
+    next.appendSections(["A", "B"])
+    next.appendItems([1, 2], toSection: "A")
+    next.appendItems([3, 4], toSection: "B")
+    next.reloadSections(["A"])
+    await ds.apply(next, animatingDifferences: true)
+
+    let result = ds.snapshot()
+    #expect(result.sectionIdentifiers == ["A", "B"])
+    #expect(result.itemIdentifiers == [1, 2, 3, 4])
+  }
+
+  /// Mixed reload and reconfigure markers on a structurally identical snapshot.
+  @Test
+  func animatedApplyMixedReloadAndReconfigureNoStructuralChanges() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    var initial = DiffableDataSourceSnapshot<String, Int>()
+    initial.appendSections(["A"])
+    initial.appendItems([1, 2, 3, 4, 5], toSection: "A")
+    await ds.applySnapshotUsingReloadData(initial)
+
+    var next = DiffableDataSourceSnapshot<String, Int>()
+    next.appendSections(["A"])
+    next.appendItems([1, 2, 3, 4, 5], toSection: "A")
+    next.reloadItems([1, 3])
+    next.reconfigureItems([2, 4])
+    await ds.apply(next, animatingDifferences: true)
+
+    let result = ds.snapshot()
+    #expect(result.itemIdentifiers == [1, 2, 3, 4, 5])
+  }
+
+  /// Structural changes with item reload markers — reloads deferred to completion handler.
+  /// Note: deferred reloads are skipped when the collection view has no window (windowless testing).
+  @Test
+  func animatedApplyStructuralChangesWithItemReloads() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    var initial = DiffableDataSourceSnapshot<String, Int>()
+    initial.appendSections(["A"])
+    initial.appendItems([1, 2, 3, 4, 5], toSection: "A")
+    await ds.applySnapshotUsingReloadData(initial)
+
+    // Delete 2, insert 6, reload surviving item 3
+    var next = DiffableDataSourceSnapshot<String, Int>()
+    next.appendSections(["A"])
+    next.appendItems([1, 3, 4, 5, 6], toSection: "A")
+    next.reloadItems([3])
+    await ds.apply(next, animatingDifferences: true)
+
+    let result = ds.snapshot()
+    #expect(result.itemIdentifiers == [1, 3, 4, 5, 6])
+  }
+
+  /// Structural changes with item reconfigure markers — reconfigures deferred to completion handler.
+  /// Note: deferred reconfigures are skipped when the collection view has no window (windowless testing).
+  @Test
+  func animatedApplyStructuralChangesWithItemReconfigures() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    var initial = DiffableDataSourceSnapshot<String, Int>()
+    initial.appendSections(["A"])
+    initial.appendItems([1, 2, 3, 4, 5], toSection: "A")
+    await ds.applySnapshotUsingReloadData(initial)
+
+    // Delete 4, 5; insert 6, 7; reconfigure survivors 1 and 3
+    var next = DiffableDataSourceSnapshot<String, Int>()
+    next.appendSections(["A"])
+    next.appendItems([1, 2, 3, 6, 7], toSection: "A")
+    next.reconfigureItems([1, 3])
+    await ds.apply(next, animatingDifferences: true)
+
+    let result = ds.snapshot()
+    #expect(result.itemIdentifiers == [1, 2, 3, 6, 7])
+  }
+
+  /// Section insert with item reload on surviving section — tests shifted indices in completion handler.
+  /// Note: deferred reloads are skipped when the collection view has no window (windowless testing).
+  @Test
+  func animatedApplySectionInsertWithItemReloadOnSurvivingSection() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    var initial = DiffableDataSourceSnapshot<String, Int>()
+    initial.appendSections(["B"])
+    initial.appendItems([10, 20, 30], toSection: "B")
+    await ds.applySnapshotUsingReloadData(initial)
+
+    // Insert section A before B, reload item 20 in B
+    var next = DiffableDataSourceSnapshot<String, Int>()
+    next.appendSections(["A", "B"])
+    next.appendItems([1, 2], toSection: "A")
+    next.appendItems([10, 20, 30], toSection: "B")
+    next.reloadItems([20])
+    await ds.apply(next, animatingDifferences: true)
+
+    let result = ds.snapshot()
+    #expect(result.sectionIdentifiers == ["A", "B"])
+    #expect(result.itemIdentifiers(inSection: "A") == [1, 2])
+    #expect(result.itemIdentifiers(inSection: "B") == [10, 20, 30])
+  }
+
+  /// Large dataset (≥1000 items) triggers background diff followed by animated batch update.
+  @Test
+  func animatedApplyLargeDatasetTriggersDiffOnBackground() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    var initial = DiffableDataSourceSnapshot<String, Int>()
+    initial.appendSections(["A", "B"])
+    initial.appendItems(Array(0 ..< 600), toSection: "A")
+    initial.appendItems(Array(600 ..< 1200), toSection: "B")
+    await ds.applySnapshotUsingReloadData(initial)
+
+    // Structural changes on a large dataset — shrink A, expand B
+    var next = DiffableDataSourceSnapshot<String, Int>()
+    next.appendSections(["A", "B"])
+    next.appendItems(Array(0 ..< 500), toSection: "A")
+    next.appendItems(Array(500 ..< 1100), toSection: "B")
+    await ds.apply(next, animatingDifferences: true)
+
+    let result = ds.snapshot()
+    #expect(result.sectionIdentifiers == ["A", "B"])
+    #expect(result.numberOfItems == 1100)
+    #expect(result.itemIdentifiers(inSection: "A") == Array(0 ..< 500))
+    #expect(result.itemIdentifiers(inSection: "B") == Array(500 ..< 1100))
+    #expect(ds.numberOfSections(in: cv) == 2)
+    #expect(ds.collectionView(cv, numberOfItemsInSection: 0) == 500)
+    #expect(ds.collectionView(cv, numberOfItemsInSection: 1) == 600)
+  }
+
+  /// Large single-section dataset with a sliding window pattern.
+  @Test
+  func animatedApplyLargeDatasetSingleSection() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    var initial = DiffableDataSourceSnapshot<String, Int>()
+    initial.appendSections(["A"])
+    initial.appendItems(Array(0 ..< 1500), toSection: "A")
+    await ds.applySnapshotUsingReloadData(initial)
+
+    // Slide window: drop first 500, add 500 new at the end
+    var next = DiffableDataSourceSnapshot<String, Int>()
+    next.appendSections(["A"])
+    next.appendItems(Array(500 ..< 2000), toSection: "A")
+    await ds.apply(next, animatingDifferences: true)
+
+    let result = ds.snapshot()
+    #expect(result.numberOfItems == 1500)
+    #expect(result.itemIdentifiers == Array(500 ..< 2000))
+  }
+
+  /// Five rapid-fire animated applies serialize correctly via the applyTask chain.
+  @Test
+  func rapidAnimatedAppliesSerialize() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    var initial = DiffableDataSourceSnapshot<String, Int>()
+    initial.appendSections(["A"])
+    initial.appendItems([1, 2, 3], toSection: "A")
+    await ds.applySnapshotUsingReloadData(initial)
+
+    // Fire 5 animated applies via completion handler without awaiting each
+    for i in 1 ... 5 {
+      var snapshot = DiffableDataSourceSnapshot<String, Int>()
+      snapshot.appendSections(["A"])
+      snapshot.appendItems(Array(0 ..< i * 5), toSection: "A")
+      ds.apply(snapshot, animatingDifferences: true, completion: nil)
+    }
+
+    // Drain the queue with a final awaited apply
+    var terminal = DiffableDataSourceSnapshot<String, Int>()
+    terminal.appendSections(["A"])
+    terminal.appendItems(Array(0 ..< 30), toSection: "A")
+    await ds.apply(terminal, animatingDifferences: true)
+
+    let result = ds.snapshot()
+    #expect(result.itemIdentifiers == Array(0 ..< 30))
+  }
+
+  /// Sequential animated applies that grow and shrink the data set.
+  @Test
+  func sequentialAnimatedAppliesGrowingAndShrinking() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    var seed = DiffableDataSourceSnapshot<String, Int>()
+    seed.appendSections(["A"])
+    await ds.applySnapshotUsingReloadData(seed)
+
+    // Grow
+    var grow = DiffableDataSourceSnapshot<String, Int>()
+    grow.appendSections(["A"])
+    grow.appendItems(Array(1 ... 20), toSection: "A")
+    await ds.apply(grow, animatingDifferences: true)
+    #expect(ds.snapshot().numberOfItems == 20)
+
+    // Shrink with different items
+    var shrink = DiffableDataSourceSnapshot<String, Int>()
+    shrink.appendSections(["A"])
+    shrink.appendItems([5, 10, 15], toSection: "A")
+    await ds.apply(shrink, animatingDifferences: true)
+    #expect(ds.snapshot().numberOfItems == 3)
+
+    // Grow again with entirely new items
+    var growAgain = DiffableDataSourceSnapshot<String, Int>()
+    growAgain.appendSections(["A"])
+    growAgain.appendItems(Array(100 ... 110), toSection: "A")
+    await ds.apply(growAgain, animatingDifferences: true)
+
+    let result = ds.snapshot()
+    #expect(result.itemIdentifiers == Array(100 ... 110))
+  }
+
+  /// Non-animated apply followed by animated apply — transition from reloadData to performBatchUpdates.
+  @Test
+  func animatedApplyAfterNonAnimatedApply() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    // Non-animated apply uses reloadData (no batch updates)
+    var snap1 = DiffableDataSourceSnapshot<String, Int>()
+    snap1.appendSections(["A"])
+    snap1.appendItems([1, 2, 3], toSection: "A")
+    await ds.apply(snap1, animatingDifferences: false)
+
+    // Animated apply with structural changes uses performBatchUpdates
+    var snap2 = DiffableDataSourceSnapshot<String, Int>()
+    snap2.appendSections(["A", "B"])
+    snap2.appendItems([1, 3], toSection: "A")
+    snap2.appendItems([4, 5], toSection: "B")
+    await ds.apply(snap2, animatingDifferences: true)
+
+    let result = ds.snapshot()
+    #expect(result.sectionIdentifiers == ["A", "B"])
+    #expect(result.itemIdentifiers(inSection: "A") == [1, 3])
+    #expect(result.itemIdentifiers(inSection: "B") == [4, 5])
+  }
+
+  /// Applying an identical snapshot with animatingDifferences: true is a no-op (empty changeset).
+  @Test
+  func animatedApplyWithIdenticalSnapshotIsNoOp() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    var initial = DiffableDataSourceSnapshot<String, Int>()
+    initial.appendSections(["A", "B"])
+    initial.appendItems([1, 2], toSection: "A")
+    initial.appendItems([3, 4], toSection: "B")
+    await ds.applySnapshotUsingReloadData(initial)
+
+    // Apply the exact same content — changeset is empty, no UIKit calls needed
+    var identical = DiffableDataSourceSnapshot<String, Int>()
+    identical.appendSections(["A", "B"])
+    identical.appendItems([1, 2], toSection: "A")
+    identical.appendItems([3, 4], toSection: "B")
+    await ds.apply(identical, animatingDifferences: true)
+
+    let result = ds.snapshot()
+    #expect(result.sectionIdentifiers == ["A", "B"])
+    #expect(result.itemIdentifiers == [1, 2, 3, 4])
+    #expect(ds.numberOfSections(in: cv) == 2)
+    #expect(ds.collectionView(cv, numberOfItemsInSection: 0) == 2)
+    #expect(ds.collectionView(cv, numberOfItemsInSection: 1) == 2)
   }
 
   // MARK: Private
