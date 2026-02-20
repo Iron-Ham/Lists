@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-02-20
+
 ### Added
 
 - Comprehensive animated apply test suite (21 tests) covering section insert/delete/move/replace, item reorder and cross-section moves, non-structural reload/reconfigure fast path, structural changes with deferred reload/reconfigure markers, background diff with large datasets (≥1,000 items), and rapid-fire serialization edge cases
