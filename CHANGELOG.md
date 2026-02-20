@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Comprehensive animated apply test suite (21 tests) covering section insert/delete/move/replace, item reorder and cross-section moves, non-structural reload/reconfigure fast path, structural changes with deferred reload/reconfigure markers, background diff with large datasets (≥1,000 items), and rapid-fire serialization edge cases
+- Deterministic cancellation tests verifying completion callback invocation and snapshot invariant safety when `applyTask` is cancelled mid-chain
+
+### Fixed
+
+- Completion handler `apply()` variant now supports cooperative cancellation and always invokes the completion callback (even when cancelled), preventing silent hangs for callers using `withCheckedContinuation`
+- `performBatchUpdates` completion handler now checks the `finished` parameter — deferred reloads/reconfigures are skipped when UIKit interrupts the batch update
 
 ## [0.6.2] - 2026-02-19
 
