@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed Mac Catalyst refresh control guard to use process-level `UIDevice.current.userInterfaceIdiom` instead of `UIView.behavioralStyle`, which does not resolve correctly before the view is in a window hierarchy
+
 ## [0.6.4] - 2026-02-20
 
 ### Fixed
