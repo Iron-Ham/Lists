@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed crash when `onRefresh` is set on Mac Catalyst in Mac idiom — `UIRefreshControl` is now skipped when `behavioralStyle == .mac`, while apps using iPad idiom on Catalyst continue to get pull-to-refresh
+
 ## [0.6.3] - 2026-02-20
 
 ### Added

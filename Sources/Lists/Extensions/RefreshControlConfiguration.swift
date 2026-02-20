@@ -11,6 +11,12 @@ func configureRefreshControl(
   target: AnyObject,
   action: Selector
 ) {
+  // UIRefreshControl is unsupported on Mac Catalyst in the Mac idiom; assigning one crashes.
+  // behavioralStyle respects the app's preferredBehavioralStyle, so iPad-idiom apps still get refresh.
+  #if targetEnvironment(macCatalyst)
+  guard collectionView.behavioralStyle != .mac else { return }
+  #endif
+
   if onRefresh != nil, collectionView.refreshControl == nil {
     let refreshControl = UIRefreshControl()
     refreshControl.addTarget(target, action: action, for: .valueChanged)
@@ -67,6 +73,9 @@ final class RefreshControlManager {
 
   private func configureIfNeeded() {
     guard let collectionView else { return }
+    #if targetEnvironment(macCatalyst)
+    guard collectionView.behavioralStyle != .mac else { return }
+    #endif
     if onRefresh != nil, collectionView.refreshControl == nil {
       let refreshControl = UIRefreshControl()
       refreshControl.addAction(UIAction { [weak self] _ in
