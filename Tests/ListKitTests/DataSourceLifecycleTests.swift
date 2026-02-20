@@ -366,33 +366,34 @@ struct DataSourceLifecycleTests {
     #expect(result.itemIdentifiers == [100])
   }
 
-  /// Cancelled apply should be skipped — snapshot should not change.
+  /// Cancelled apply must be skipped — snapshot stays at the pre-cancel state.
+  /// Uses `applyTask` (internal via `@testable import`) for deterministic cancellation.
   @Test
   func cancelledApplyIsSkipped() async {
     let cv = makeCollectionView()
     let ds = makeDataSource(collectionView: cv)
 
-    // Apply initial state
+    // Apply initial state.
     var initial = DiffableDataSourceSnapshot<String, Int>()
     initial.appendSections(["A"])
     initial.appendItems([1, 2], toSection: "A")
     await ds.apply(initial, animatingDifferences: false)
 
-    // Create and immediately cancel a task that applies a new snapshot
+    // Queue a stale snapshot via non-blocking apply, then cancel it
+    // before yielding the main actor.
     var stale = DiffableDataSourceSnapshot<String, Int>()
     stale.appendSections(["stale"])
     stale.appendItems([99], toSection: "stale")
+    ds.apply(stale, animatingDifferences: false, completion: nil)
+    ds.applyTask?.cancel()
 
-    let task = Task {
-      await ds.apply(stale, animatingDifferences: false)
-    }
-    task.cancel()
-    await task.value
+    // Drain the chain.
+    await ds.apply(initial, animatingDifferences: false)
 
-    // The snapshot should either be the initial or stale — but the cancel
-    // gives us a chance to skip it. Verify no crash at minimum.
+    // The stale snapshot was definitely skipped.
     let result = ds.snapshot()
-    #expect(result.numberOfSections >= 1)
+    #expect(result.sectionIdentifiers == ["A"])
+    #expect(result.itemIdentifiers == [1, 2])
   }
 
   /// Applying a snapshot with >1,000 items should trigger the background diff path
@@ -420,30 +421,29 @@ struct DataSourceLifecycleTests {
     #expect(result.itemIdentifiers == Array(750 ..< 2_250))
   }
 
-  /// Cancelling a large apply mid-flight should not corrupt state.
+  /// Cancelling a large-dataset apply must not corrupt state.
+  /// The cancelled snapshot must not be applied, and the subsequent apply
+  /// must diff correctly against the pre-cancel baseline.
   @Test
   func cancelledLargeApplyDoesNotCorruptState() async {
     let cv = makeCollectionView()
     let ds = makeDataSource(collectionView: cv)
 
-    // Establish baseline state with >1,000 items
+    // Establish baseline state with >1,000 items (triggers background diff path).
     var initial = DiffableDataSourceSnapshot<String, Int>()
     initial.appendSections(["A"])
     initial.appendItems(Array(0 ..< 2_000), toSection: "A")
     await ds.apply(initial, animatingDifferences: false)
 
-    // Fire a large apply and immediately cancel it
+    // Queue a large apply via non-blocking completion handler, then cancel.
     var cancelled = DiffableDataSourceSnapshot<String, Int>()
     cancelled.appendSections(["cancelled"])
     cancelled.appendItems(Array(0 ..< 2_000), toSection: "cancelled")
+    ds.apply(cancelled, animatingDifferences: false, completion: nil)
+    ds.applyTask?.cancel()
 
-    let task = Task {
-      await ds.apply(cancelled, animatingDifferences: false)
-    }
-    task.cancel()
-    await task.value
-
-    // Apply a known-good final snapshot
+    // Apply a known-good final snapshot — diffs against the initial baseline
+    // (not the cancelled snapshot).
     var final = DiffableDataSourceSnapshot<String, Int>()
     final.appendSections(["B"])
     final.appendItems([1, 2, 3], toSection: "B")
@@ -1143,6 +1143,392 @@ struct DataSourceLifecycleTests {
     #expect(result.itemIdentifiers == [1, 2, 3, 4])
     #expect(ds.numberOfSections(in: cv) == 2)
     #expect(ds.collectionView(cv, numberOfItemsInSection: 0) == 2)
+    #expect(ds.collectionView(cv, numberOfItemsInSection: 1) == 2)
+  }
+
+  /// Item migrates from a deleted section to a surviving section.
+  /// Section A is deleted (items 1,2,3 implicitly removed). Item 2 reappears
+  /// in surviving section B as an explicit insert. UIKit must handle the
+  /// interaction between section delete and item insert in the same batch.
+  @Test
+  func animatedApplyItemMigratesFromDeletedSectionToSurvivingSection() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    var initial = DiffableDataSourceSnapshot<String, Int>()
+    initial.appendSections(["A", "B"])
+    initial.appendItems([1, 2, 3], toSection: "A")
+    initial.appendItems([4, 5], toSection: "B")
+    await ds.applySnapshotUsingReloadData(initial)
+
+    // Delete section A entirely; item 2 reappears in section B.
+    var next = DiffableDataSourceSnapshot<String, Int>()
+    next.appendSections(["B"])
+    next.appendItems([4, 2, 5], toSection: "B")
+    await ds.apply(next, animatingDifferences: true)
+
+    let result = ds.snapshot()
+    #expect(result.sectionIdentifiers == ["B"])
+    #expect(result.itemIdentifiers(inSection: "B") == [4, 2, 5])
+    #expect(ds.numberOfSections(in: cv) == 1)
+    #expect(ds.collectionView(cv, numberOfItemsInSection: 0) == 3)
+  }
+
+  /// Multiple items scatter from a deleted section into different surviving sections.
+  /// Section B is deleted; its items 4 and 5 end up in sections A and C respectively.
+  @Test
+  func animatedApplyItemsScatterFromDeletedSectionToMultipleSurvivingSections() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    var initial = DiffableDataSourceSnapshot<String, Int>()
+    initial.appendSections(["A", "B", "C"])
+    initial.appendItems([1, 2], toSection: "A")
+    initial.appendItems([4, 5], toSection: "B")
+    initial.appendItems([7, 8], toSection: "C")
+    await ds.applySnapshotUsingReloadData(initial)
+
+    // Delete section B; item 4 goes to A, item 5 goes to C.
+    var next = DiffableDataSourceSnapshot<String, Int>()
+    next.appendSections(["A", "C"])
+    next.appendItems([1, 4, 2], toSection: "A")
+    next.appendItems([7, 5, 8], toSection: "C")
+    await ds.apply(next, animatingDifferences: true)
+
+    let result = ds.snapshot()
+    #expect(result.sectionIdentifiers == ["A", "C"])
+    #expect(result.itemIdentifiers(inSection: "A") == [1, 4, 2])
+    #expect(result.itemIdentifiers(inSection: "C") == [7, 5, 8])
+    #expect(ds.numberOfSections(in: cv) == 2)
+    #expect(ds.collectionView(cv, numberOfItemsInSection: 0) == 3)
+    #expect(ds.collectionView(cv, numberOfItemsInSection: 1) == 3)
+  }
+
+  /// Section moves combined with item reorder inside the moved section.
+  /// Section A and B swap positions; items within each are also reordered.
+  /// Both `moveSection` and `moveItem` fire in the same batch.
+  @Test
+  func animatedApplySectionMoveWithItemReorderInside() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    var initial = DiffableDataSourceSnapshot<String, Int>()
+    initial.appendSections(["A", "B"])
+    initial.appendItems([1, 2, 3], toSection: "A")
+    initial.appendItems([4, 5, 6], toSection: "B")
+    await ds.applySnapshotUsingReloadData(initial)
+
+    // Swap section order AND reorder items within each.
+    var next = DiffableDataSourceSnapshot<String, Int>()
+    next.appendSections(["B", "A"])
+    next.appendItems([6, 4, 5], toSection: "B")
+    next.appendItems([3, 1, 2], toSection: "A")
+    await ds.apply(next, animatingDifferences: true)
+
+    let result = ds.snapshot()
+    #expect(result.sectionIdentifiers == ["B", "A"])
+    #expect(result.itemIdentifiers(inSection: "B") == [6, 4, 5])
+    #expect(result.itemIdentifiers(inSection: "A") == [3, 1, 2])
+    #expect(ds.numberOfSections(in: cv) == 2)
+    #expect(ds.collectionView(cv, numberOfItemsInSection: 0) == 3)
+    #expect(ds.collectionView(cv, numberOfItemsInSection: 1) == 3)
+  }
+
+  /// Cross-section item moves between sections that are also being reordered.
+  /// Sections swap positions AND items move between them.
+  @Test
+  func animatedApplyCrossSectionItemMoveWithSectionReorder() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    var initial = DiffableDataSourceSnapshot<String, Int>()
+    initial.appendSections(["A", "B", "C"])
+    initial.appendItems([1, 2], toSection: "A")
+    initial.appendItems([3, 4], toSection: "B")
+    initial.appendItems([5, 6], toSection: "C")
+    await ds.applySnapshotUsingReloadData(initial)
+
+    // Reorder sections C, A, B. Move item 2 from A→C, item 5 from C→B.
+    var next = DiffableDataSourceSnapshot<String, Int>()
+    next.appendSections(["C", "A", "B"])
+    next.appendItems([6, 2], toSection: "C")
+    next.appendItems([1], toSection: "A")
+    next.appendItems([3, 5, 4], toSection: "B")
+    await ds.apply(next, animatingDifferences: true)
+
+    let result = ds.snapshot()
+    #expect(result.sectionIdentifiers == ["C", "A", "B"])
+    #expect(result.itemIdentifiers(inSection: "C") == [6, 2])
+    #expect(result.itemIdentifiers(inSection: "A") == [1])
+    #expect(result.itemIdentifiers(inSection: "B") == [3, 5, 4])
+    #expect(ds.numberOfSections(in: cv) == 3)
+  }
+
+  /// All items in a section replaced with entirely new items.
+  /// Generates both deletes and inserts for the same section — counts must balance.
+  @Test
+  func animatedApplyCompleteItemReplacementInSection() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    var initial = DiffableDataSourceSnapshot<String, Int>()
+    initial.appendSections(["A", "B"])
+    initial.appendItems([1, 2, 3], toSection: "A")
+    initial.appendItems([10, 20], toSection: "B")
+    await ds.applySnapshotUsingReloadData(initial)
+
+    // Replace all items in A with new ones; B unchanged.
+    var next = DiffableDataSourceSnapshot<String, Int>()
+    next.appendSections(["A", "B"])
+    next.appendItems([7, 8, 9, 100], toSection: "A")
+    next.appendItems([10, 20], toSection: "B")
+    await ds.apply(next, animatingDifferences: true)
+
+    let result = ds.snapshot()
+    #expect(result.itemIdentifiers(inSection: "A") == [7, 8, 9, 100])
+    #expect(result.itemIdentifiers(inSection: "B") == [10, 20])
+    #expect(ds.collectionView(cv, numberOfItemsInSection: 0) == 4)
+    #expect(ds.collectionView(cv, numberOfItemsInSection: 1) == 2)
+  }
+
+  /// Insert and delete empty sections (no items). Section-only operations
+  /// must not confuse UIKit's count validation.
+  @Test
+  func animatedApplyEmptySectionInsertAndDelete() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    var initial = DiffableDataSourceSnapshot<String, Int>()
+    initial.appendSections(["A", "B", "C"])
+    // A and C have items; B is empty.
+    initial.appendItems([1, 2], toSection: "A")
+    initial.appendItems([5, 6], toSection: "C")
+    await ds.applySnapshotUsingReloadData(initial)
+
+    // Delete empty B, insert empty D, keep A and C.
+    var next = DiffableDataSourceSnapshot<String, Int>()
+    next.appendSections(["A", "C", "D"])
+    next.appendItems([1, 2], toSection: "A")
+    next.appendItems([5, 6], toSection: "C")
+    // D is empty.
+    await ds.apply(next, animatingDifferences: true)
+
+    let result = ds.snapshot()
+    #expect(result.sectionIdentifiers == ["A", "C", "D"])
+    #expect(result.numberOfItems == 4)
+    #expect(ds.numberOfSections(in: cv) == 3)
+    #expect(ds.collectionView(cv, numberOfItemsInSection: 2) == 0)
+  }
+
+  /// Cancelled completion-handler apply must still invoke the completion callback.
+  /// Dropping the callback can deadlock callers using `withCheckedContinuation`.
+  /// Uses `applyTask` (internal via `@testable import`) to deterministically cancel
+  /// the queued task before it executes.
+  @Test
+  func cancelledCompletionHandlerApplyStillCallsCompletion() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    // Seed initial state.
+    var initial = DiffableDataSourceSnapshot<String, Int>()
+    initial.appendSections(["A"])
+    initial.appendItems([1, 2, 3], toSection: "A")
+    await ds.applySnapshotUsingReloadData(initial)
+
+    // Queue a blocking apply — task1 chains behind the seed.
+    var snap1 = DiffableDataSourceSnapshot<String, Int>()
+    snap1.appendSections(["A"])
+    snap1.appendItems([1, 2], toSection: "A")
+    ds.apply(snap1, animatingDifferences: false, completion: nil)
+
+    // Queue a second apply whose completion we want to verify — task2 chains behind task1.
+    var completionCalled = false
+    var snap2 = DiffableDataSourceSnapshot<String, Int>()
+    snap2.appendSections(["B"])
+    snap2.appendItems([99], toSection: "B")
+    ds.apply(snap2, animatingDifferences: false) {
+      completionCalled = true
+    }
+
+    // Cancel task2 synchronously — its closure hasn't started because
+    // we haven't yielded the main actor.
+    ds.applyTask?.cancel()
+
+    // Drain the chain with a final apply.
+    var final = DiffableDataSourceSnapshot<String, Int>()
+    final.appendSections(["A"])
+    final.appendItems([1, 2, 3], toSection: "A")
+    await ds.apply(final, animatingDifferences: false)
+
+    // The cancelled apply must still have called its completion.
+    #expect(completionCalled)
+    // The cancelled snap2 should not have been applied — final state is from the drain.
+    #expect(ds.snapshot().sectionIdentifiers == ["A"])
+    #expect(ds.snapshot().itemIdentifiers == [1, 2, 3])
+  }
+
+  /// A cancelled apply must not advance `currentSnapshot`. If it did, the next
+  /// animated apply would diff against a snapshot that UIKit never saw, breaking
+  /// the `pre_count + inserts - deletes == post_count` invariant and causing
+  /// `NSInternalInconsistencyException`.
+  @Test
+  func cancelledApplyDoesNotAdvanceSnapshotAndSubsequentAnimatedApplySucceeds() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    // Seed with a known state.
+    var initial = DiffableDataSourceSnapshot<String, Int>()
+    initial.appendSections(["A"])
+    initial.appendItems([1, 2, 3, 4, 5], toSection: "A")
+    await ds.applySnapshotUsingReloadData(initial)
+
+    // Queue a non-blocking apply — task1.
+    ds.apply(initial, animatingDifferences: false, completion: nil)
+
+    // Queue a structurally different snapshot — task2.
+    var divergent = DiffableDataSourceSnapshot<String, Int>()
+    divergent.appendSections(["X", "Y"])
+    divergent.appendItems([10, 20], toSection: "X")
+    divergent.appendItems([30], toSection: "Y")
+    ds.apply(divergent, animatingDifferences: false, completion: nil)
+
+    // Cancel task2 before it runs — snapshot must stay at `initial`.
+    ds.applyTask?.cancel()
+
+    // Now apply a slightly different snapshot with animated differences.
+    // If the cancelled apply had advanced the snapshot to `divergent`,
+    // the diff would produce wrong inserts/deletes relative to UIKit's
+    // actual state (still `initial`), triggering a crash.
+    var updated = DiffableDataSourceSnapshot<String, Int>()
+    updated.appendSections(["A"])
+    updated.appendItems([1, 2, 3, 4, 5, 6, 7], toSection: "A")
+    await ds.apply(updated, animatingDifferences: true)
+
+    // No crash — verify correct final state.
+    let result = ds.snapshot()
+    #expect(result.sectionIdentifiers == ["A"])
+    #expect(result.itemIdentifiers == [1, 2, 3, 4, 5, 6, 7])
+    #expect(ds.numberOfSections(in: cv) == 1)
+    #expect(ds.collectionView(cv, numberOfItemsInSection: 0) == 7)
+  }
+
+  /// Cancelling an earlier task in the chain must not affect later tasks.
+  /// task1 is cancelled, but task2 and task3 should still execute normally.
+  @Test
+  func cancellationIsIsolatedToIndividualTask() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    var initial = DiffableDataSourceSnapshot<String, Int>()
+    initial.appendSections(["A"])
+    initial.appendItems([1, 2, 3], toSection: "A")
+    await ds.applySnapshotUsingReloadData(initial)
+
+    // task1 — we'll cancel this one.
+    var snap1 = DiffableDataSourceSnapshot<String, Int>()
+    snap1.appendSections(["cancelled"])
+    snap1.appendItems([99], toSection: "cancelled")
+    ds.apply(snap1, animatingDifferences: false, completion: nil)
+    let task1 = ds.applyTask
+    task1?.cancel()
+
+    // task2 — chains behind cancelled task1, should still execute.
+    var snap2 = DiffableDataSourceSnapshot<String, Int>()
+    snap2.appendSections(["A"])
+    snap2.appendItems([10, 20], toSection: "A")
+    ds.apply(snap2, animatingDifferences: false, completion: nil)
+
+    // task3 — chains behind task2, should still execute.
+    var snap3 = DiffableDataSourceSnapshot<String, Int>()
+    snap3.appendSections(["A"])
+    snap3.appendItems([10, 20, 30], toSection: "A")
+    await ds.apply(snap3, animatingDifferences: false)
+
+    // task1 was skipped; task2 and task3 ran. Final state is snap3.
+    let result = ds.snapshot()
+    #expect(result.sectionIdentifiers == ["A"])
+    #expect(result.itemIdentifiers == [10, 20, 30])
+  }
+
+  /// All completion callbacks must fire in order even when a mid-chain task is cancelled.
+  @Test
+  func completionCallbackOrderPreservedUnderCancellation() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    var initial = DiffableDataSourceSnapshot<String, Int>()
+    initial.appendSections(["A"])
+    initial.appendItems([1], toSection: "A")
+    await ds.applySnapshotUsingReloadData(initial)
+
+    var order = [Int]()
+
+    // task1 — normal.
+    var snap1 = DiffableDataSourceSnapshot<String, Int>()
+    snap1.appendSections(["A"])
+    snap1.appendItems([1, 2], toSection: "A")
+    ds.apply(snap1, animatingDifferences: false) { order.append(1) }
+
+    // task2 — will be cancelled.
+    var snap2 = DiffableDataSourceSnapshot<String, Int>()
+    snap2.appendSections(["X"])
+    snap2.appendItems([99], toSection: "X")
+    ds.apply(snap2, animatingDifferences: false) { order.append(2) }
+    ds.applyTask?.cancel()
+
+    // task3 — normal.
+    var snap3 = DiffableDataSourceSnapshot<String, Int>()
+    snap3.appendSections(["A"])
+    snap3.appendItems([1, 2, 3], toSection: "A")
+
+    await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+      ds.apply(snap3, animatingDifferences: false) {
+        order.append(3)
+        continuation.resume()
+      }
+    }
+
+    // All three completions fired in order.
+    #expect(order == [1, 2, 3])
+    // Cancelled snap2 was skipped; final state is snap3.
+    #expect(ds.snapshot().sectionIdentifiers == ["A"])
+    #expect(ds.snapshot().itemIdentifiers == [1, 2, 3])
+  }
+
+  /// Rapidly cancelling and re-applying animated snapshots with structural changes
+  /// must not crash or corrupt state.
+  @Test
+  func rapidCancelAndReapplyWithAnimatedDiffsDoesNotCrash() async {
+    let cv = makeCollectionView()
+    let ds = makeDataSource(collectionView: cv)
+
+    var initial = DiffableDataSourceSnapshot<String, Int>()
+    initial.appendSections(["A"])
+    initial.appendItems(Array(0 ..< 20), toSection: "A")
+    await ds.applySnapshotUsingReloadData(initial)
+
+    // Rapid-fire: queue an animated apply, cancel it, queue another, cancel, etc.
+    for i in 0 ..< 5 {
+      var snap = DiffableDataSourceSnapshot<String, Int>()
+      snap.appendSections(["S\(i)"])
+      snap.appendItems(Array(i * 10 ..< i * 10 + 15), toSection: "S\(i)")
+      ds.apply(snap, animatingDifferences: true, completion: nil)
+      ds.applyTask?.cancel()
+    }
+
+    // Drain with a final non-cancelled animated apply.
+    var final = DiffableDataSourceSnapshot<String, Int>()
+    final.appendSections(["A", "B"])
+    final.appendItems([1, 2, 3], toSection: "A")
+    final.appendItems([4, 5], toSection: "B")
+    await ds.apply(final, animatingDifferences: true)
+
+    // No crash — verify correct final state.
+    let result = ds.snapshot()
+    #expect(result.sectionIdentifiers == ["A", "B"])
+    #expect(result.itemIdentifiers == [1, 2, 3, 4, 5])
+    #expect(ds.numberOfSections(in: cv) == 2)
+    #expect(ds.collectionView(cv, numberOfItemsInSection: 0) == 3)
     #expect(ds.collectionView(cv, numberOfItemsInSection: 1) == 2)
   }
 

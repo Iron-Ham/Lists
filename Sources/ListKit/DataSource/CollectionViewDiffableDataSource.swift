@@ -73,6 +73,7 @@ public final class CollectionViewDiffableDataSource<
 
   /// Convenience — completion handler variant.
   /// Serialized: concurrent calls are queued and executed in order.
+  /// Supports cooperative cancellation — cancelled tasks skip the apply.
   public func apply(
     _ snapshot: DiffableDataSourceSnapshot<SectionIdentifierType, ItemIdentifierType>,
     animatingDifferences: Bool = true,
@@ -81,6 +82,10 @@ public final class CollectionViewDiffableDataSource<
     let previousTask = applyTask
     applyTask = Task { @MainActor in
       _ = await previousTask?.value
+      guard !Task.isCancelled else {
+        completion?()
+        return
+      }
       await self.performApply(snapshot, animatingDifferences: animatingDifferences)
       completion?()
     }
@@ -248,6 +253,13 @@ public final class CollectionViewDiffableDataSource<
     )
   }
 
+  // MARK: Internal
+
+  /// Serializes `apply()` calls so concurrent calls don't race on
+  /// `currentSnapshot` while a batch update is in flight.
+  /// Internal (not private) so tests can cancel via `@testable import`.
+  var applyTask: Task<Void, Never>?
+
   // MARK: Private
 
   /// Item count threshold above which diff computation is offloaded to a
@@ -261,10 +273,6 @@ public final class CollectionViewDiffableDataSource<
   private let cellProvider: CellProvider
   private var currentSnapshot = DiffableDataSourceSnapshot<SectionIdentifierType, ItemIdentifierType>()
   private var fallbackRegistrations = [String: UICollectionView.SupplementaryRegistration<UICollectionReusableView>]()
-
-  /// Serializes completion-handler `apply()` calls so concurrent calls
-  /// don't race on `currentSnapshot` while a batch update is in flight.
-  private var applyTask: Task<Void, Never>?
 
   /// Core apply logic — called only from serialized public methods.
   ///
@@ -361,10 +369,10 @@ public final class CollectionViewDiffableDataSource<
         // causes UIKit to read the new count for both pre and post, breaking its
         // `pre_count + inserts - deletes == post_count` invariant.
         self.currentSnapshot = snapshot
-      } completion: { _ in
+      } completion: { finished in
         // Reloads and reconfigures run after the batch completes, using new indices.
         // This matches Apple's NSDiffableDataSourceSnapshot behavior.
-        guard collectionView.window != nil else {
+        guard finished, collectionView.window != nil else {
           continuation.resume()
           return
         }
