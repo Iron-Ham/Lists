@@ -17,6 +17,12 @@ import UIKit
 /// Dynamic properties like ``allowsMultipleSelection`` and ``isEditing`` can be changed
 /// at any time.
 ///
+/// ## Closure Callbacks
+///
+/// Callback properties (`onSelect`, `onDelete`, `trailingSwipeActionsProvider`, etc.) are
+/// stored as strong references. If the closure captures the list's owner (e.g. a view
+/// controller), use `[weak self]` to avoid a retain cycle.
+///
 /// ```swift
 /// let list = GroupedList<String, ContactItem>()
 /// await list.setSections([
@@ -24,7 +30,9 @@ import UIKit
 /// ])
 /// ```
 @MainActor
-public final class GroupedList<SectionID: Hashable & Sendable, Item: CellViewModel>: NSObject, UICollectionViewDelegate {
+public final class GroupedList<SectionID: Hashable & Sendable, Item: CellViewModel>: NSObject, UICollectionViewDelegate,
+  ListConfigurable
+{
 
   // MARK: Lifecycle
 
@@ -165,16 +173,6 @@ public final class GroupedList<SectionID: Hashable & Sendable, Item: CellViewMod
   /// events without replacing the collection view's delegate (which the list manages internally).
   public weak var scrollViewDelegate: UIScrollViewDelegate?
 
-  /// A view displayed behind the list content. Set to a placeholder (e.g. "No items")
-  /// that is automatically shown when the list is empty and hidden when it has content.
-  ///
-  /// The view is placed as the collection view's `backgroundView`. Visibility is managed
-  /// automatically based on `numberOfItems` after each `setSections` call.
-  public var backgroundView: UIView? {
-    get { collectionView.backgroundView }
-    set { collectionView.backgroundView = newValue }
-  }
-
   /// Per-item separator customization handler.
   ///
   /// Called for each item before display. Return a modified configuration to customize
@@ -190,35 +188,6 @@ public final class GroupedList<SectionID: Hashable & Sendable, Item: CellViewMod
   /// ```
   public var separatorHandler: (@MainActor (Item, UIListSeparatorConfiguration) -> UIListSeparatorConfiguration)? {
     didSet { bridge.setSeparatorProvider(separatorHandler) }
-  }
-
-  /// Whether the list allows multiple simultaneous selections.
-  ///
-  /// When `true`, tapping an item does not automatically deselect other items.
-  /// Use ``onDeselect`` to track deselection events.
-  public var allowsMultipleSelection: Bool {
-    get { collectionView.allowsMultipleSelection }
-    set { collectionView.allowsMultipleSelection = newValue }
-  }
-
-  /// Whether selection is allowed during editing mode.
-  public var allowsSelectionDuringEditing: Bool {
-    get { collectionView.allowsSelectionDuringEditing }
-    set { collectionView.allowsSelectionDuringEditing = newValue }
-  }
-
-  /// Whether multiple selection is allowed during editing mode.
-  public var allowsMultipleSelectionDuringEditing: Bool {
-    get { collectionView.allowsMultipleSelectionDuringEditing }
-    set { collectionView.allowsMultipleSelectionDuringEditing = newValue }
-  }
-
-  /// Whether the list is in editing mode.
-  ///
-  /// When `true`, cells may display editing controls such as delete and reorder accessories.
-  public var isEditing: Bool {
-    get { collectionView.isEditing }
-    set { collectionView.isEditing = newValue }
   }
 
   /// An async closure invoked on pull-to-refresh. The refresh control is dismissed
@@ -247,21 +216,6 @@ public final class GroupedList<SectionID: Hashable & Sendable, Item: CellViewMod
   /// an item from being dragged. When `nil`, all items are moveable (if `onMove` is set).
   public var canMoveItemProvider: (@MainActor (Item) -> Bool)? {
     didSet { configureReorderIfNeeded() }
-  }
-
-  /// The total number of items across all sections.
-  public var numberOfItems: Int {
-    dataSource.snapshot().numberOfItems
-  }
-
-  /// The number of sections in the list.
-  public var numberOfSections: Int {
-    dataSource.snapshot().numberOfSections
-  }
-
-  /// The currently selected items, derived from the collection view's selected index paths.
-  public var selectedItems: [Item] {
-    (collectionView.indexPathsForSelectedItems ?? []).compactMap { bridge.itemIdentifier(for: $0) }
   }
 
   /// Replaces all sections, computing and animating the diff.
@@ -360,71 +314,6 @@ public final class GroupedList<SectionID: Hashable & Sendable, Item: CellViewMod
     return snap.itemIdentifiers(inSection: section)
   }
 
-  /// Programmatically selects the specified item.
-  ///
-  /// - Parameters:
-  ///   - item: The item to select.
-  ///   - scrollPosition: Where to scroll after selecting. Pass `[]` for no scrolling.
-  ///   - animated: Whether the selection should be animated.
-  /// - Returns: `true` if the item was found and selected, `false` if not present.
-  @discardableResult
-  public func selectItem(
-    _ item: Item,
-    at scrollPosition: UICollectionView.ScrollPosition = [],
-    animated: Bool = true
-  ) -> Bool {
-    bridge.selectItem(item, in: collectionView, at: scrollPosition, animated: animated)
-  }
-
-  /// Programmatically deselects the specified item.
-  ///
-  /// - Parameters:
-  ///   - item: The item to deselect.
-  ///   - animated: Whether the deselection should be animated.
-  /// - Returns: `true` if the item was found and deselected, `false` if not present.
-  @discardableResult
-  public func deselectItem(_ item: Item, animated: Bool = true) -> Bool {
-    bridge.deselectItem(item, in: collectionView, animated: animated)
-  }
-
-  /// Returns whether the specified item is currently selected.
-  public func isSelected(_ item: Item) -> Bool {
-    bridge.isSelected(item, in: collectionView)
-  }
-
-  /// Deselects all currently selected items.
-  ///
-  /// - Parameter animated: Whether the deselection should be animated.
-  public func deselectAll(animated: Bool = true) {
-    for indexPath in collectionView.indexPathsForSelectedItems ?? [] {
-      collectionView.deselectItem(at: indexPath, animated: animated)
-    }
-  }
-
-  /// Scrolls to the top of the list.
-  public func scrollToTop(animated: Bool = true) {
-    bridge.scrollToTop(in: collectionView, animated: animated)
-  }
-
-  /// Scrolls to the bottom of the list.
-  public func scrollToBottom(animated: Bool = true) {
-    bridge.scrollToBottom(in: collectionView, animated: animated)
-  }
-
-  /// Programmatically scrolls to the specified item.
-  ///
-  /// - Returns: `true` if the item was found in the current snapshot and the scroll was
-  ///   initiated, `false` if the item is not present. For items removed between snapshot
-  ///   updates, this returns `false` without side effects.
-  @discardableResult
-  public func scrollToItem(
-    _ item: Item,
-    at scrollPosition: UICollectionView.ScrollPosition = .centeredVertically,
-    animated: Bool = true
-  ) -> Bool {
-    bridge.scrollToItem(item, in: collectionView, at: scrollPosition, animated: animated)
-  }
-
   public func collectionView(
     _: UICollectionView,
     shouldSelectItemAt indexPath: IndexPath
@@ -447,6 +336,10 @@ public final class GroupedList<SectionID: Hashable & Sendable, Item: CellViewMod
   ) -> UIContextMenuConfiguration? {
     bridge.handleContextMenu(at: indexPath, provider: contextMenuProvider)
   }
+
+  // These @objc methods cannot be provided by a protocol extension (Swift protocol extensions
+  // don't participate in Objective-C dispatch), so they are duplicated across SimpleList,
+  // GroupedList, and OutlineList by necessity.
 
   public func scrollViewDidScroll(_ scrollView: UIScrollView) {
     scrollViewDelegate?.scrollViewDidScroll?(scrollView)

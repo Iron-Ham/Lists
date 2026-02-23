@@ -19,8 +19,10 @@ Lists is the high-level, developer-facing API built on top of ListKit. It provid
 Lists/
 ├── Protocols/
 │   ├── CellViewModel.swift          — Core protocol: Hashable + Sendable + cell configuration
+│   ├── ListConfigurable.swift       — Shared convenience APIs for list configurations
 │   └── SectionModel.swift           — Section metadata (header/footer text)
 ├── DataSource/
+│   ├── AutoReconfigure.swift        — Shared content-change detection algorithm
 │   ├── ListDataSource.swift         — Single-cell-type data source with automatic registration
 │   └── MixedListDataSource.swift    — Heterogeneous cell types via AnyItem type erasure
 ├── Builder/
@@ -126,9 +128,22 @@ When storing supplementary text (headers/footers) in dictionaries keyed by secti
 
 This pattern exists in `GroupedList.setSections` and `MixedListDataSource.apply(content:)`.
 
-### API Surface Duplication Across Configurations
+### ListConfigurable Protocol
 
-Convenience properties like `numberOfItems`, `numberOfSections`, `selectedItems`, `deselectAll`, and `UIScrollViewDelegate` forwarding are copy-pasted identically across `SimpleList`, `GroupedList`, and `OutlineList`. When adding a new convenience property or method to one configuration, **you must add it to all three** (plus their SwiftUI wrappers and modifier files if applicable). There is currently no shared protocol enforcing this — it's manual.
+The `ListConfigurable` protocol (in `Protocols/ListConfigurable.swift`) provides shared convenience APIs across `SimpleList`, `GroupedList`, and `OutlineList`. It derives ~15 default implementations from just four requirements: `collectionView`, `snapshot()`, `itemIdentifier(for:)`, and `indexPath(for:)`.
+
+When adding a new convenience property or method that applies to all list configurations:
+1. **Add it to `ListConfigurable`'s protocol extension** — all three configurations get it automatically
+2. If the API needs configuration-specific behavior, add it directly to each configuration instead
+3. `@objc` delegate methods (UICollectionViewDelegate, UIScrollViewDelegate) cannot be provided by protocol extensions — these remain duplicated by necessity
+
+### Shared DataSourceAlgorithms
+
+The `DataSourceAlgorithms` enum (in `DataSource/AutoReconfigure.swift`) namespaces shared algorithms used by `ListDataSource` and `MixedListDataSource`:
+- `computeItemsToReconfigure` — content-change detection. Each data source passes its own equality closure:
+  - `ListDataSource`: type-level `ContentEquatable` check + `isContentEqualTypeErased`
+  - `MixedListDataSource`: `AnyItem.isContentEqual(to:)` (per-item type erasure)
+- `flattenSectionSnapshot` — converts a hierarchical section snapshot to a flat snapshot for display
 
 ## When Modifying This Module
 
