@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added `ListConfigurable` protocol that provides shared convenience APIs (`backgroundView`, `allowsMultipleSelection`, `isEditing`, `numberOfItems`, `selectedItems`, `selectItem`, `deselectItem`, `deselectAll`, `scrollToTop`, `scrollToBottom`, `scrollToItem`, and more) via protocol extension — adding a new convenience method to this protocol automatically provides it to `SimpleList`, `GroupedList`, and `OutlineList`
+
+### Changed
+
+- Extracted shared `computeItemsToReconfigure` function from `ListDataSource` and `MixedListDataSource`, deduplicating the autoReconfigure algorithm
+- Extracted shared `flattenSectionSnapshot` function from `ListDataSource` and `MixedListDataSource`, deduplicating the section snapshot flattening logic
+- Removed dead convenience methods from `ListConfigurationBridge` (`scrollToItem`, `selectItem`, `deselectItem`, `isSelected`, `scrollToTop`, `scrollToBottom`) — now provided by `ListConfigurable` protocol extension
+
+### Fixed
+
+- Fixed `MixedListDataSource.apply(_:to:animatingDifferences:)` bypassing `autoReconfigure`, so `ContentEquatable` items now correctly trigger reconfiguration when applied via section snapshots
+- Fixed `OutlineList.setItems` not reconfiguring cells when `CellViewModel` conforms to `ContentEquatable` and content changes but identity stays the same ([#65](https://github.com/Iron-Ham/Lists/issues/65))
+
 ## [0.6.5] - 2026-02-20
 
 ### Fixed

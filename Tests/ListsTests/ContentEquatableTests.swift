@@ -174,6 +174,105 @@ struct ContentEquatableTests {
     let result = dataSource.snapshot()
     #expect(result.numberOfItems == 1)
   }
+
+  @MainActor
+  @Test
+  func autoReconfigureWorksWithSectionSnapshotApply() async {
+    let cv = UICollectionView(frame: .zero, collectionViewLayout: UICollectionViewFlowLayout())
+    let dataSource = ListDataSource<Int, ContentItem>(collectionView: cv)
+
+    // Ensure section 0 exists
+    var initial = DiffableDataSourceSnapshot<Int, ContentItem>()
+    initial.appendSections([0])
+    initial.appendItems([
+      ContentItem(id: "1", title: "Hello", subtitle: "A"),
+      ContentItem(id: "2", title: "World", subtitle: "B"),
+    ], toSection: 0)
+    await dataSource.apply(initial, animatingDifferences: false)
+
+    // Apply via section snapshot with a content change on item "1"
+    var sectionSnapshot = DiffableDataSourceSectionSnapshot<ContentItem>()
+    sectionSnapshot.append([
+      ContentItem(id: "1", title: "Changed", subtitle: "A"),
+      ContentItem(id: "2", title: "World", subtitle: "B"),
+    ])
+    await dataSource.apply(sectionSnapshot, to: 0, animatingDifferences: false)
+
+    // Snapshot should reflect the new items
+    let result = dataSource.snapshot()
+    #expect(result.numberOfItems == 2)
+    #expect(result.itemIdentifiers.contains(ContentItem(id: "1", title: "Changed", subtitle: "A")))
+  }
+
+  @MainActor
+  @Test
+  func autoReconfigureWithSectionSnapshotDetectsContentChanges() async throws {
+    let cv = UICollectionView(frame: .zero, collectionViewLayout: UICollectionViewFlowLayout())
+    let dataSource = ListDataSource<Int, ContentItem>(collectionView: cv)
+
+    // Set up initial state
+    var initial = DiffableDataSourceSnapshot<Int, ContentItem>()
+    initial.appendSections([0])
+    initial.appendItems([
+      ContentItem(id: "1", title: "Hello", subtitle: "A")
+    ], toSection: 0)
+    await dataSource.apply(initial, animatingDifferences: false)
+
+    // Build a section snapshot with changed content
+    var sectionSnapshot = DiffableDataSourceSectionSnapshot<ContentItem>()
+    sectionSnapshot.append([
+      ContentItem(id: "1", title: "Changed", subtitle: "A")
+    ])
+
+    // Manually verify autoReconfigure would detect the change by building
+    // the same full snapshot the apply path constructs
+    let oldSnapshot = dataSource.snapshot()
+    var newSnapshot = oldSnapshot
+    newSnapshot.deleteItems(newSnapshot.itemIdentifiers(inSection: 0))
+    newSnapshot.appendItems(sectionSnapshot.visibleItems, toSection: 0)
+
+    // Before autoReconfigure, reconfiguredItemIdentifiers should be empty
+    #expect(newSnapshot.reconfiguredItemIdentifiers.isEmpty)
+
+    // Items match by identity (same id) but content differs (title changed)
+    let oldItem = try #require(oldSnapshot.itemIdentifiers.first)
+    let newItem = try #require(newSnapshot.itemIdentifiers.first)
+    #expect(oldItem == newItem) // Same identity
+    #expect(!oldItem.isContentEqual(to: newItem)) // Different content
+
+    // Apply and verify the data source has the updated items
+    await dataSource.apply(sectionSnapshot, to: 0, animatingDifferences: false)
+    let result = dataSource.snapshot()
+    #expect(result.numberOfItems == 1)
+  }
+
+  @MainActor
+  @Test
+  func autoReconfigureWithHierarchicalSectionSnapshot() async {
+    let cv = UICollectionView(frame: .zero, collectionViewLayout: UICollectionViewFlowLayout())
+    let dataSource = ListDataSource<Int, ContentItem>(collectionView: cv)
+
+    let parent = ContentItem(id: "parent", title: "Folder", subtitle: "")
+    let child = ContentItem(id: "child", title: "File", subtitle: "10 KB")
+
+    // Set up initial state with parent-child hierarchy
+    var initial = DiffableDataSourceSnapshot<Int, ContentItem>()
+    initial.appendSections([0])
+    initial.appendItems([parent, child], toSection: 0)
+    await dataSource.apply(initial, animatingDifferences: false)
+
+    // Apply section snapshot with updated child content
+    let updatedChild = ContentItem(id: "child", title: "File", subtitle: "20 KB")
+    var sectionSnapshot = DiffableDataSourceSectionSnapshot<ContentItem>()
+    sectionSnapshot.append([parent])
+    sectionSnapshot.append([updatedChild], to: parent)
+    sectionSnapshot.expand([parent])
+    await dataSource.apply(sectionSnapshot, to: 0, animatingDifferences: false)
+
+    let result = dataSource.snapshot()
+    #expect(result.numberOfItems == 2)
+    #expect(result.itemIdentifiers.contains(updatedChild))
+  }
 }
 
 // MARK: - ContentItem

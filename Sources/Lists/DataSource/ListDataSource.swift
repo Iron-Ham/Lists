@@ -86,12 +86,26 @@ public final class ListDataSource<SectionID: Hashable & Sendable, Item: CellView
   }
 
   /// Applies a hierarchical section snapshot to a specific section for outline-style content.
+  ///
+  /// The section snapshot's ``DiffableDataSourceSectionSnapshot/visibleItems`` are flattened
+  /// into the target section; hierarchical parent–child structure is not preserved in the
+  /// underlying snapshot. When `Item` conforms to ``ContentEquatable``, items whose identity
+  /// matches but whose content has changed are automatically marked for reconfiguration.
   public func apply(
     _ sectionSnapshot: DiffableDataSourceSectionSnapshot<Item>,
     to section: SectionID,
     animatingDifferences: Bool = true
   ) async {
-    await dataSource.apply(sectionSnapshot, to: section, animatingDifferences: animatingDifferences)
+    guard
+      let newSnapshot = DataSourceAlgorithms.flattenSectionSnapshot(
+        sectionSnapshot,
+        intoSection: section,
+        of: dataSource.snapshot()
+      )
+    else {
+      return
+    }
+    await apply(newSnapshot, animatingDifferences: animatingDifferences)
   }
 
   /// Returns a copy of the current snapshot.
@@ -125,32 +139,15 @@ public final class ListDataSource<SectionID: Hashable & Sendable, Item: CellView
   private let dataSource: CollectionViewDiffableDataSource<SectionID, Item>
 
   /// Detects content changes for ``ContentEquatable`` items and marks them for reconfiguration.
-  ///
-  /// For items that match by identity (Hashable/Equatable) in both old and new snapshots,
-  /// checks `isContentEqual(to:)`. Items whose content differs are added to the new snapshot's
-  /// `reconfiguredItemIdentifiers`, triggering an in-place cell update on the next apply.
   private func autoReconfigure(old: Snapshot, new: inout Snapshot) {
     guard Item.self is any ContentEquatable.Type else { return }
 
-    let oldItems = old.itemIdentifiers
-    guard !oldItems.isEmpty else { return }
-
-    var oldLookup = [Item: Item]()
-    oldLookup.reserveCapacity(oldItems.count)
-    for item in oldItems {
-      oldLookup[item] = item
-    }
-
-    var toReconfigure = [Item]()
-    for newItem in new.itemIdentifiers {
-      guard let oldItem = oldLookup[newItem] else { continue }
+    let toReconfigure = DataSourceAlgorithms.computeItemsToReconfigure(old: old, new: new) { newItem, oldItem in
       guard let newCE = newItem as? any ContentEquatable else {
         assertionFailure("Item passed type-level ContentEquatable check but failed instance cast")
-        continue
+        return true
       }
-      if !newCE.isContentEqualTypeErased(to: oldItem) {
-        toReconfigure.append(newItem)
-      }
+      return newCE.isContentEqualTypeErased(to: oldItem)
     }
 
     if !toReconfigure.isEmpty {

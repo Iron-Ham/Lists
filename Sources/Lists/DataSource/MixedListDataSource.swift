@@ -121,12 +121,26 @@ public final class MixedListDataSource<SectionID: Hashable & Sendable> {
   }
 
   /// Applies a hierarchical section snapshot to a specific section for outline-style content.
+  ///
+  /// The section snapshot's ``DiffableDataSourceSectionSnapshot/visibleItems`` are flattened
+  /// into the target section; hierarchical parent–child structure is not preserved in the
+  /// underlying snapshot. Items whose wrapped type conforms to ``ContentEquatable`` are
+  /// automatically checked for content changes and marked for reconfiguration.
   public func apply(
     _ sectionSnapshot: DiffableDataSourceSectionSnapshot<AnyItem>,
     to section: SectionID,
     animatingDifferences: Bool = true
   ) async {
-    await dataSource.apply(sectionSnapshot, to: section, animatingDifferences: animatingDifferences)
+    guard
+      let newSnapshot = DataSourceAlgorithms.flattenSectionSnapshot(
+        sectionSnapshot,
+        intoSection: section,
+        of: dataSource.snapshot()
+      )
+    else {
+      return
+    }
+    await apply(newSnapshot, animatingDifferences: animatingDifferences)
   }
 
   /// Returns a copy of the current snapshot.
@@ -212,21 +226,8 @@ public final class MixedListDataSource<SectionID: Hashable & Sendable> {
   /// Detects content changes for ``AnyItem`` values whose wrapped types conform to
   /// ``ContentEquatable`` and marks them for reconfiguration.
   private func autoReconfigure(old: Snapshot, new: inout Snapshot) {
-    let oldItems = old.itemIdentifiers
-    guard !oldItems.isEmpty else { return }
-
-    var oldLookup = [AnyItem: AnyItem]()
-    oldLookup.reserveCapacity(oldItems.count)
-    for item in oldItems {
-      oldLookup[item] = item
-    }
-
-    var toReconfigure = [AnyItem]()
-    for newItem in new.itemIdentifiers {
-      guard let oldItem = oldLookup[newItem] else { continue }
-      if !newItem.isContentEqual(to: oldItem) {
-        toReconfigure.append(newItem)
-      }
+    let toReconfigure = DataSourceAlgorithms.computeItemsToReconfigure(old: old, new: new) { newItem, oldItem in
+      newItem.isContentEqual(to: oldItem)
     }
 
     if !toReconfigure.isEmpty {
