@@ -38,10 +38,11 @@ final class ListKitChatExampleViewController: UIViewController, UICollectionView
 
   func collectionView(
     _: UICollectionView,
-    contextMenuConfigurationForItemAt indexPath: IndexPath,
+    contextMenuConfigurationForItemsAt indexPaths: [IndexPath],
     point _: CGPoint
   ) -> UIContextMenuConfiguration? {
     guard
+      let indexPath = indexPaths.first,
       let ref = dataSource.itemIdentifier(for: indexPath),
       let model = store.model(for: ref.id)
     else { return nil }
