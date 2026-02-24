@@ -1,0 +1,31 @@
+{
+  "cli_version": "0.4.5",
+  "checkpoint_id": "a0bd8bb54e8e",
+  "session_id": "d911499d-dd2b-4e1a-8933-d1d57baa86dd",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-24T15:00:10.488615Z",
+  "branch": "Iron-Ham/release-0.6.6",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "CHANGELOG.md"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "17cd16a522e6",
+  "token_usage": {
+    "input_tokens": 145,
+    "cache_creation_tokens": 329608,
+    "cache_read_tokens": 13389872,
+    "output_tokens": 34258,
+    "api_call_count": 121
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-24T15:00:10.088019Z",
+    "agent_lines": 0,
+    "human_added": 2930,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 2930,
+    "agent_percentage": 0
+  },
+  "transcript_path": ".claude/projects/-Users-zer0-Developer-oss-ListKit/d911499d-dd2b-4e1a-8933-d1d57baa86dd.jsonl"
+}
