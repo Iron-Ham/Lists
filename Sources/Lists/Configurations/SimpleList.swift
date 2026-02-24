@@ -258,10 +258,10 @@ public final class SimpleList<Item: CellViewModel>: NSObject, UICollectionViewDe
 
   public func collectionView(
     _: UICollectionView,
-    contextMenuConfigurationForItemAt indexPath: IndexPath,
+    contextMenuConfigurationForItemsAt indexPaths: [IndexPath],
     point _: CGPoint
   ) -> UIContextMenuConfiguration? {
-    bridge.handleContextMenu(at: indexPath, provider: contextMenuProvider)
+    bridge.handleContextMenu(at: indexPaths, provider: contextMenuProvider)
   }
 
   // These @objc methods cannot be provided by a protocol extension (Swift protocol extensions

@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fixed `MixedListDataSource.apply(_:to:animatingDifferences:)` bypassing `autoReconfigure`, so `ContentEquatable` items now correctly trigger reconfiguration when applied via section snapshots
 - Fixed `OutlineList.setItems` not reconfiguring cells when `CellViewModel` conforms to `ContentEquatable` and content changes but identity stays the same ([#65](https://github.com/Iron-Ham/Lists/issues/65))
+- Fixed context menus not appearing on Mac Catalyst by adopting the iOS 16+ plural `contextMenuConfigurationForItemsAt` delegate method ([#67](https://github.com/Iron-Ham/Lists/issues/67))
 
 ## [0.6.5] - 2026-02-20
 

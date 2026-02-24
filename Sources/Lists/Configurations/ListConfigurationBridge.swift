@@ -100,16 +100,20 @@ final class ListConfigurationBridge<SectionID: Hashable & Sendable, Item: CellVi
     onDeselect?(item)
   }
 
-  /// Handles a `contextMenuConfigurationForItemAt` delegate call.
+  /// Handles a `contextMenuConfigurationForItemsAt` delegate call (iOS 16+).
+  ///
+  /// - Returns: A context menu configuration for the first index path, or `nil`
+  ///   if `indexPaths` is empty (background tap) or the provider is not set.
   func handleContextMenu(
-    at indexPath: IndexPath,
+    at indexPaths: [IndexPath],
     provider: (@MainActor (Item) -> UIContextMenuConfiguration?)?
   ) -> UIContextMenuConfiguration? {
+    guard let provider, let indexPath = indexPaths.first else { return nil }
     guard let item = dataSource?.itemIdentifier(for: indexPath) else {
       assertionFailure("Item not found for indexPath \(indexPath)")
       return nil
     }
-    return provider?(item)
+    return provider(item)
   }
 
   /// Returns the item at the given index path, or `nil` if out of bounds.
