@@ -1,0 +1,26 @@
+{
+  "cli_version": "0.4.5",
+  "checkpoint_id": "a0bd8bb54e8e",
+  "strategy": "manual-commit",
+  "branch": "Iron-Ham/release-0.6.6",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "CHANGELOG.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/a0/bd8bb54e8e/0/metadata.json",
+      "transcript": "/a0/bd8bb54e8e/0/full.jsonl",
+      "context": "/a0/bd8bb54e8e/0/context.md",
+      "content_hash": "/a0/bd8bb54e8e/0/content_hash.txt",
+      "prompt": "/a0/bd8bb54e8e/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 6,
+    "cache_creation_tokens": 17521,
+    "cache_read_tokens": 78269,
+    "output_tokens": 1832,
+    "api_call_count": 4
+  }
+}
