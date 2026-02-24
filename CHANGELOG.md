@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.6] - 2026-02-24
+
 ### Added
 
 - Added `ListConfigurable` protocol that provides shared convenience APIs (`backgroundView`, `allowsMultipleSelection`, `isEditing`, `numberOfItems`, `selectedItems`, `selectItem`, `deselectItem`, `deselectAll`, `scrollToTop`, `scrollToBottom`, `scrollToItem`, and more) via protocol extension — adding a new convenience method to this protocol automatically provides it to `SimpleList`, `GroupedList`, and `OutlineList`
