@@ -1,0 +1,26 @@
+{
+  "cli_version": "0.4.5",
+  "checkpoint_id": "6f8a4f3a33c2",
+  "strategy": "manual-commit",
+  "branch": "Iron-Ham/fix-deprecated-context-menu-example",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "Example/Sources/ListKitChatExampleViewController.swift"
+  ],
+  "sessions": [
+    {
+      "metadata": "/6f/8a4f3a33c2/0/metadata.json",
+      "transcript": "/6f/8a4f3a33c2/0/full.jsonl",
+      "context": "/6f/8a4f3a33c2/0/context.md",
+      "content_hash": "/6f/8a4f3a33c2/0/content_hash.txt",
+      "prompt": "/6f/8a4f3a33c2/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 17,
+    "cache_creation_tokens": 44299,
+    "cache_read_tokens": 539151,
+    "output_tokens": 1596,
+    "api_call_count": 13
+  }
+}

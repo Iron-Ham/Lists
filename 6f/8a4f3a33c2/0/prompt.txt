@@ -1,0 +1,5 @@
+For our UICollectionViewDelegate conformances: Are we conforming to any dperecated APIs?
+
+---
+
+Yes
