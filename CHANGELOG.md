@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Corrected the Swift Package Manager installation URL and minimum version in the README ([#71](https://github.com/Iron-Ham/Lists/issues/71))
+
 ## [0.6.6] - 2026-02-24
 
 ### Added
